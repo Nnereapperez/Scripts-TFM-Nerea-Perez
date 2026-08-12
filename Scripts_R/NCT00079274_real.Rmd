@@ -1,0 +1,1154 @@
+---
+title: "NCT00079274"
+author: "Claudia Pascual Tomàs"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r}
+library(readr)
+
+ds <- readr::read_csv("NCT00079274_unido.csv")
+
+str(ds)
+
+table(ds$arm)
+```
+
+```{r}
+colSums(is.na(ds[, c("agecat","sex","racecat","nodes", "wild", "bmi2", "stage_g", "histo_g", "arm", "ps", "bwl_obs" )]))
+```
+# 1. Análisis descriptivo de la población
+
+•	Distribución de la categoría de edad, utilizando la variable age category.
+```{r}
+library(ggplot2)
+
+ageplot <- ggplot(ds, aes(x = agecat, fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Age",
+    title = "Ages", 
+  )
+ageplot
+```
+
+•	Distribución de sexo, utilizando la variable sex.
+```{r}
+sexplot<-ggplot(ds, aes(x = sex, fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Sex",
+    title = "Sex") +
+    scale_x_discrete(labels = c("m" = "Male", "f" = "Female")
+  )
+sexplot
+```
+
+•	Distribución de raza, utilizando la variable race category.
+```{r}
+raceplot<-ggplot(ds, aes(x = racecat, fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Race",
+    title = "Races") +
+    scale_x_discrete(labels = c("w" = "White", "oth" = "Other", "b" = "Black or African American")
+                     )
+raceplot
+```
+
+•	Distribución del estado funcional ECOG, utilizando la variable ECOG performance status.
+
+```{r}
+ecogplot<-ggplot(ds, aes(x = ps, fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "ECOG",
+    title = "ECOG"
+  )
+ecogplot
+```
+
+
+El estado funcional ECOG es una clasificación utilizada en oncología para medir el nivel de actividad del paciente y el impacto de la enfermedad en su vida diaria.
+
+0: totalmente activo
+1: actividad normal con limitaciones leves
+2: capaz de cuidarse a sí mismo, pero incapaz de trabajar
+3: capacidad limitada de autocuidado
+4: completamente dependiente
+5: fallecido
+
+•	Distribución del estado del biomarcador KRAS, utilizando la variable KRAS biomarker status.
+
+```{r}
+krasplot<-ggplot(ds, aes(x = factor(wild), fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "KRAS",
+    title = "KRAS Biomarker status"
+  ) +
+  scale_x_discrete(labels = c("1" = "Wild-type", "0" = "Mutant", "-1" = "Unknown")
+                     )
+krasplot
+```
+
+
+El estado mutacional del gen KRAS es un biomarcador relevante en cáncer colorrectal que puede influir en la respuesta a determinadas terapias.
+•	Distribución del índice de masa corporal, utilizando la variable body mass index.
+
+```{r}
+bmiplot<-ggplot(ds, aes(x = bmi2, fill = arm)) +
+  geom_histogram() +
+  labs(
+    x = "BMI",
+    title = "BMI"
+  )
+bmiplot
+```
+
+
+•	Distribución de obstrucción intestinal, utilizando la variable bowel obstruction (obstruccion intestinal )
+
+```{r}
+obsplot<-ggplot(ds, aes(x = factor(bwl_obs), fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Bowel Obstruction",
+    title = "Bowel Obstruction"
+  ) +
+   scale_x_discrete(labels = c("1" = "Yes", "2" = "No")
+                     )
+obsplot
+```
+
+
+•	Distribución de perforación intestinal, utilizando la variable bowel perforation.
+```{r}
+perfplot<-ggplot(ds, aes(x = factor(bwl_perf), fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Bowel Perforation",
+    title = "Bowel perforation"
+  ) +
+   scale_x_discrete(labels = c("1" = "Yes", "2" = "No")
+                     )
+perfplot
+```
+
+•	Distribución del número de ganglios positivos, utilizando la variable number of positive lymph nodes.
+
+```{r}
+nodosplot<-ggplot(ds, aes(x = factor(nodes), fill = arm )) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "LNs",
+    title = "LNs"
+  ) +
+  scale_x_discrete(labels = c("1" = "1-3", "2" = ">=4")
+                     )
+nodosplot
+```
+
+
+•	Distribución por brazo de tratamiento, utilizando la variable treatment arm.
+
+```{r}
+ggplot(ds, aes(x = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Arms",
+    title = "Distribution of treatment's arms"
+  ) +
+  scale_x_discrete(labels = c("A" = "FOLFOX", "D" = "FOLFOX + Cetuximab")
+                     )
+```
+
+```{r, fig.height=8, fig.width=10}
+library(gridExtra)
+library(patchwork)
+
+combined <- (ageplot + sexplot + raceplot) / (ecogplot + krasplot + bmiplot) / (obsplot + perfplot + nodosplot) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Distribuciones basales") &
+  scale_fill_discrete(labels = c("FOLFOX", "FOLFOX + Cetuximab"))
+combined
+
+grid.arrange(ageplot, sexplot, raceplot, ecogplot, krasplot, bmiplot, obsplot, perfplot, nodosplot, ncol = 3, nrow = 3, top = "Distribuciones basales")
+```
+
+
+# 2. Comparación de características basales entre brazos
+
+```{r}
+library(rlang)
+ 
+ds <- ds |>
+  dplyr::mutate(
+    arm = dplyr::case_when(
+      arm == "A" ~ "FOLFOX",
+      arm == "D" ~ "FOLFOX + Cetuximab"
+    ),
+    racecat = dplyr::recode(
+      racecat,
+      "w" = "White",
+      "b" = "Black or African American",
+      "oth" = "Other"
+    ),
+    racecat = factor(
+      racecat,
+      levels = c(
+        "White",
+        "Black or African American",
+        "Other"
+      )
+    ),
+    sex = dplyr::recode(
+      sex,
+      "f" = "Female",
+      "m" = "Male"
+    ),
+    wild = dplyr::case_when(
+      wild == 1 ~ "Wild-type",
+      wild == 0 ~ "Mutant",
+      TRUE ~ NA_character_
+    ),
+    stage_g = dplyr::recode(
+      stage_g,
+      `1` = "T1 or T2",
+      `2` = "T3",
+      `3` = "T4"
+    ),
+    stage_g = factor(stage_g, levels = c("T1 or T2", "T3", "T4")),
+    
+    histo_label = dplyr::recode(histo_g,
+                                `1` = "High (poorly/undifferentiated)",
+                                `2` = "Low (well/moderately differentiated)"),
+    
+    histo_high = factor(ifelse(histo_g == 1, "High", "Low"),
+                        levels = c("Low", "High")),
+    
+    ecog = factor(ps, levels = c(0, 1, 2)),
+    ecog_12 = factor(ifelse(ps >= 1, "1-2", "0"), levels = c("0", "1-2")),
+    
+    nodes_label = factor(dplyr::recode(nodes, `1` = "1-3", `2` = "≥4"),
+                          levels = c("1-3", "≥4")),
+    nodes_4plus = factor(ifelse(nodes == 2, "≥4", "1-3"),
+                          levels = c("1-3", "≥4")),
+    bwl_obs_label = factor(dplyr::recode(bwl_obs, `1` = "Yes", `2` = "No"),
+                            levels = c("No", "Yes")),
+    bwl_perf_label = factor(dplyr::recode(bwl_perf, `1` = "Yes", `2` = "No"),
+                            levels = c("No", "Yes")),
+    obstr = factor(ifelse(bwl_obs == 1, "Yes", "No"), levels = c("No", "Yes")),
+    
+    # Sex como factor
+    sex = factor(sex, levels = c("Female", "Male")),
+    
+     # agecat sanitizado (ggforest se atraganta con ">=" y espacios)
+    agecat = factor(
+     dplyr::case_when(
+      agecat == "< 40"   ~ "< 40",
+      agecat == "40-69" ~ "40-69",
+      agecat == ">= 70"  ~ ">= 70"
+  ),
+  levels = c("< 40", "40-69", ">= 70")
+),
+    arm_group = dplyr::case_when(
+    arm == "FOLFOX" ~ "FOLFOX",
+    arm == "FOLFOX + Cetuximab" & bwl_obs == 1 ~ "Cetuximab_BWL_Yes",
+    arm == "FOLFOX + Cetuximab" & bwl_obs == 2 ~ "Cetuximab_BWL_No",
+    TRUE ~ NA_character_
+)
+)
+custom_summary <- function(df, group_var, sum_var) {
+  group_var <- rlang::ensym(group_var)
+  sum_var <- rlang::ensym(sum_var)
+
+  is_categorical <-
+    is.character(df[[as_string(sum_var)]]) |
+    is.factor(df[[as_string(sum_var)]])
+
+  if (is_categorical) {
+    category_lbl <-
+      as_string(sum_var)
+#para quitar los NA de la tabla. modificado con chatgpt
+    df_out <-
+      df |>
+      dplyr::filter(!is.na(!!sum_var)) |> #chatgpt
+      dplyr::group_by(!!group_var) |>
+      dplyr::mutate(den = dplyr::n()) |> #chatgpt
+      dplyr::group_by(!!group_var, !!sum_var) |>
+      dplyr::summarize(
+        val = dplyr::n(),
+        den = unique(den),
+        pct = val / den,
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = !!sum_var, names_from = !!group_var,
+        values_from = c(val, den, pct)
+      ) |>
+      dplyr::rename(label = !!sum_var) |>
+      dplyr::mutate(
+        across(where(is.numeric), ~ ifelse(is.na(.), 0, .)),
+        category = category_lbl
+      )
+  } else {
+    category_lbl <- as_string(sum_var)
+
+    df_out <-
+      df |>
+      dplyr::group_by(!!group_var) |>
+      dplyr::summarize(
+        n = sum(!is.na(!!sum_var)),
+        mean = mean(!!sum_var, na.rm = TRUE),
+        sd = sd(!!sum_var, na.rm = TRUE),
+        median = median(!!sum_var, na.rm = TRUE),
+        lcl = min(!!sum_var, na.rm = TRUE),
+        ucl = max(!!sum_var, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_longer(
+        cols = c(mean, median), #quito n, no hace falta
+        names_to = "label",
+        values_to = "val"
+      ) |>
+      dplyr::mutate(
+        sd = ifelse(label == "mean", sd, NA),
+        label = dplyr::recode(
+          label,
+          "mean" = "Mean (SD)",
+          "median" = "Median (Range)"
+        )
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = label,
+        names_from = !!group_var,
+        values_from = c(val, sd, lcl, ucl)
+      ) |>
+      dplyr::mutate(category = category_lbl)
+  }
+
+  return(df_out)
+}
+
+#Claude
+compute_pvalue <- function(df, group_var, sum_var) {
+  group_var_str <- rlang::as_string(rlang::ensym(group_var))
+  sum_var_str   <- rlang::as_string(rlang::ensym(sum_var))
+  
+  is_categorical <- is.character(df[[sum_var_str]]) | is.factor(df[[sum_var_str]])
+  
+  df_clean <- df[!is.na(df[[sum_var_str]]) & !is.na(df[[group_var_str]]), ]
+  
+   if (is_categorical) {
+    tbl       <- table(df_clean[[group_var_str]], df_clean[[sum_var_str]])
+    p         <- suppressWarnings(chisq.test(tbl)$p.value)
+    test_used <- "Chi-square"
+    
+  } else {
+    groups    <- split(df_clean[[sum_var_str]], df_clean[[group_var_str]])
+    p         <- wilcox.test(groups[[1]], groups[[2]])$p.value
+    test_used <- "Wilcoxon rank-sum"
+  }
+  
+  tibble::tibble(category = sum_var_str, p_value = p, test_used = test_used)
+}
+
+ds_summary <- ds |>
+  (\(data) purrr::map_df(
+    .x = dplyr::vars(agecat, sex, racecat, nodes_4plus, wild, bmi2, stage_g, histo_high, ecog_12),
+    .f = \(x) custom_summary(df = data, group_var = arm_group, sum_var = !!x)
+  ))()
+
+#esto lo ha hecho chatgpt:
+ds_summary <- ds_summary |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      agecat = "Age, y",
+      sex = "Sex",
+      racecat = "Race",
+      bmi2 = "BMI",
+      wild = "KRAS",
+      ecog_12 = "ECOG performance Status",
+      stage_g = "Extent of invasion through bowel wall, No./total (%)",
+      nodes_4plus = "Positive LNs",
+      histo_high = "Histology"
+    )
+  )
+
+ds_summary <- ds_summary |>
+  dplyr::mutate(
+    label = dplyr::case_when(
+      category == "BMI" & label == "Median (Range)" ~ "Median",
+      TRUE ~ label
+    )
+  )
+
+pvalue_df <- purrr::map_df(
+  .x = c("agecat", "sex", "racecat", "nodes_4plus", "wild",
+         "bmi2", "stage_g", "histo_high", "ecog_12"),
+  .f = ~ compute_pvalue(
+    df = ds |> dplyr::filter(!is.na(arm)),
+    group_var = arm,
+    sum_var = !!rlang::sym(.x)
+  )
+)
+
+pvalue_df <- pvalue_df |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      agecat   = "Age, y",
+      sex      = "Sex",
+      racecat  = "Race",
+      bmi2     = "BMI",
+      wild     = "KRAS",
+      ecog_12  = "ECOG performance Status",
+      stage_g  = "Extent of invasion through bowel wall, No./total (%)",
+      nodes_4plus    = "Positive LNs",
+      histo_highg  = "Histology"
+    )
+  )
+
+ds_summary <- ds_summary |>
+  dplyr::group_by(category) |>
+  dplyr::mutate(row_num = dplyr::row_number()) |>
+  dplyr::ungroup() |>
+  dplyr::left_join(pvalue_df, by = "category") |>
+  dplyr::mutate(
+    p_value   = dplyr::if_else(row_num == 1, p_value, NA_real_),
+    test_used = dplyr::if_else(row_num == 1, test_used, NA_character_)
+  ) |>
+  dplyr::select(-row_num)
+```
+
+```{r}
+library(gt)
+
+ds_tbl <-
+  ds_summary |>
+  gt(
+    rowname_col = "label",
+    groupname_col = "category"
+  ) |>
+  tab_header(
+    title = "Baseline Patient Characteristics in Primary Analysis Population" )
+
+ds_tbl <-
+  ds_tbl |>
+  fmt_integer(
+    columns = starts_with(c("val_")),
+    rows = !(label %in% c("Mean (SD)", "Median")) #para que sean todos los valores enteros excepto media y mediana
+  ) |>
+  fmt_percent(
+    columns = starts_with("pct_"),
+    decimals = 1,
+  ) |>
+  fmt_number(
+    columns = starts_with("val_"),
+    rows = label == "Mean (SD)",
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("sd_"),
+    rows = label == "Mean (SD)",
+    decimals = 2
+  ) |>
+  fmt_number(
+    columns = starts_with("lcl_"),
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("ucl_"),
+    decimals = 1
+  )|>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median (Range)",
+  decimals = 1
+  ) |>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median",
+  decimals = 1
+  )
+
+ds_tbl <- ds_tbl |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_Yes", "lcl_Cetuximab_BWL_Yes", "ucl_Cetuximab_BWL_Yes"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_No", "lcl_Cetuximab_BWL_No", "ucl_Cetuximab_BWL_No"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX", "lcl_FOLFOX", "ucl_FOLFOX"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) 
+ds_tbl <-
+  ds_tbl |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_Yes", "pct_Cetuximab_BWL_Yes", "sd_Cetuximab_BWL_Yes"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  ) |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_No", "pct_Cetuximab_BWL_No", "sd_Cetuximab_BWL_No"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX", "pct_FOLFOX", "sd_FOLFOX"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  )
+ds_tbl <- ds_tbl |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_Yes", "den_Cetuximab_BWL_Yes", "pct_Cetuximab_BWL_Yes"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_No", "den_Cetuximab_BWL_No", "pct_Cetuximab_BWL_No"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX", "den_FOLFOX", "pct_FOLFOX"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "{1}/{2} ({3})"
+  )
+
+ds_tbl <-
+  ds_tbl |>
+  tab_stub_indent(
+    rows = everything(),
+    indent = 5
+  ) |>
+  opt_align_table_header(align = "left")
+ds_tbl <-
+  ds_tbl |>
+  cols_width(
+    starts_with("val_") ~ px(200),
+    1 ~ px(250)
+  ) |>
+  cols_align(
+    align = "center",
+    columns = starts_with("val_")
+  )
+
+### CLAUDE: Count subjects per arm and summarize values in a list
+arm_n <-
+  ds |>
+  dplyr::group_by(arm_group) |>
+  dplyr::summarize(
+    lbl = sprintf("%s N=%i (100%%)", unique(arm_group), dplyr::n()),
+    .groups = "drop"
+  ) |>
+  dplyr::arrange(arm_group)
+
+collbl_list <- as.list(arm_n$lbl)
+names(collbl_list) <- paste0("val_", arm_n$arm_group)
+
+ds_tbl <-
+  ds_tbl |>
+  cols_label(.list = collbl_list)
+
+ds_tbl <- ds_tbl |>
+  gt::tab_spanner(
+    label = "FOLFOX + Cetuximab",
+    columns = c("val_Cetuximab_BWL_Yes", "val_Cetuximab_BWL_No")
+  )
+ds_tbl <- ds_tbl |>
+  gt::cols_label(
+    val_FOLFOX = "FOLFOX",
+    val_Cetuximab_BWL_Yes = "Bowel Obstruction: Yes",
+    val_Cetuximab_BWL_No = "Bowel Obstruction: No"
+  )
+ds_tbl <- ds_tbl |>
+  # Formato del p-valor
+  fmt_number(
+    columns = "p_value",
+    decimals = 3
+  ) |>
+  # Valores muy pequeños como "<0.001"
+  sub_small_vals(
+    columns  = "p_value",
+    threshold = 0.001
+  ) |>
+  # Celdas vacías (NA) en blanco
+  sub_missing(
+    columns = "p_value",
+    missing_text = ""
+  ) |>
+  cols_label(p_value = md("*P* Value")) |>
+  cols_align(align = "center", columns = "p_value") |>
+  cols_width("p_value" ~ px(100)) |>
+  cols_hide(columns = "test_used") |>
+  # Nota al pie explicando los tests usados
+  tab_footnote(
+    footnote = "Chi-square test for categorical variables; Wilcoxon rank-sum test for continuous variables.",
+    locations = cells_column_labels(columns = "p_value")
+  )
+
+ds_tbl
+```
+
+```{r}
+#ds_tbl |> gtsave("ds_tbl.docx")
+```
+
+
+# 3.Survival Analysis
+
+https://rpubs.com/mbounthavong/survival_analysis_in_r : Sjoberg DD, Whiting K, Curry M, Lavery JA, Larmarange J. Reproducible summary tables with the gtsummary package. The R Journal 2021;13:570–80. https://doi.org/10.32614/RJ-2021-053.
+
+## Kaplan-Meier curves
+
+```{r}
+names(ds)
+```
+
+
+```{r}
+library(survival) 
+#DFS
+#kmcurve_dfs <- survfit(Surv(dfstime5, dfsstat5) ~ arm, data = ds)
+#OS
+#kmcurve_fu <- survfit(Surv(futime8, fustat8) ~ arm, data = ds)
+#recurrence
+#kmcurve_pg <- survfit(Surv(pgtime5, pgstat5) ~ arm, data = ds)
+
+```
+
+```{r}
+library(survminer) #0.5.2
+#survival 3.8-6
+#ggsurvfit version 1.2.0
+#survMisc version0.5.6
+#ggsurvplot(kmcurve_dfs, 
+           #conf.int = TRUE,
+           #pval = TRUE,
+           #risk.table = TRUE,
+           #legend.labs = c("FOLFOX", "FOLFOX + Cetuximab"),
+           #title = "DFS Kaplan-Meier curve")
+#ggsurvplot(kmcurve_fu, 
+           #conf.int = TRUE,
+           #pval = TRUE,
+           #risk.table = TRUE,
+           #legend.labs = c("FOLFOX", "FOLFOX + Cetuximab"),
+           #title = "OS Kaplan-Meier curve")
+#ggsurvplot(kmcurve_pg, 
+           #conf.int = TRUE,
+           #pval = TRUE,
+           #risk.table = TRUE,
+           #legend.labs = c("FOLFOX", "FOLFOX + Cetuximab"),
+           #title = "Recurrence Kaplan-Meier curve")
+#transformar dias en meses.
+```
+
+###Bowel obstruction
+
+```{r}
+
+ds_armA <- ds |> dplyr::filter(arm == "FOLFOX")
+
+ds_armA <- ds_armA |>
+  dplyr::mutate(
+    fustat8  = dplyr::if_else(futime8 > 1880, 0L, as.integer(fustat8)),
+    futime8  = pmin(futime8, 1880),
+    dfsstat5 = dplyr::if_else(dfstime5 > 1880, 0L, as.integer(dfsstat5)),
+    dfstime5 = pmin(dfstime5, 1880)
+  )
+ds_armA$bwl_obs <- factor(ds_armA$bwl_obs, levels = c(2, 1), labels = c("No", "Yes"))
+kmcurve_os_bwl <- survfit(Surv(futime8, fustat8) ~ bwl_obs, data = ds_armA)
+#plot(kmcurve_os_bwl)
+summary(kmcurve_os_bwl, times = 1825)
+```
+
+```{r, fig.width=8, fig.height=8}
+OS_plot<-ggsurvplot(kmcurve_os_bwl,
+           conf.int = TRUE,
+           pval = FALSE,
+           risk.table = TRUE,
+           legend.labs = c("OBS−","OBS+"),
+           title = "OS Bowel Obstruction Kaplan-Meier curve",
+           legend = "bottom",
+           #fun = "event",
+           #ylab = "Died (%)",
+           break.y.by = 0.25,
+           ylim = c(0.5, 1),
+           xscale = "d_m",
+           xlab = "Time in months",
+           xlim = c(0, 1880),
+           break.x.by = 304.4
+           )
+OS_plot$plot <- OS_plot$plot + 
+  annotate("text", 
+           x = 1, y = 0.75,
+           label = "HR 2.28 (IC95% 1.56–3.31)\np < 0.001",
+           hjust = 0, size = 3.5, fontface = "italic")
+OS_plot #https://www.rdocumentation.org/packages/ggplot2/versions/4.0.2/topics/annotate
+```
+
+
+```{r}
+kmcurve_dfs_bwl <- survfit(Surv(dfstime5, dfsstat5) ~ bwl_obs, data = ds_armA)
+#plot(kmcurve_dfs_bwl)
+summary(kmcurve_dfs_bwl, times = 1800)
+```
+
+```{r, fig.width=8, fig.height=8}
+DFS_plot<-ggsurvplot(kmcurve_dfs_bwl, 
+           conf.int = TRUE,
+           pval = FALSE,
+           risk.table = TRUE,
+           legend.labs = c("OBS−", "OBS+"),
+           legend = "bottom",
+           title = "DFS Bowel Obstruction Kaplan-Meier curve",
+           #fun = "event",
+           #ylab = "DFS event (%)",
+           #surv.scale = "percent",
+           break.y.by = 0.25,
+           ylim = c(0.4, 1),
+           xscale = "d_m",
+           xlab = "Time in months",
+           xlim = c(0, 1880),
+           break.x.by = 304.4
+           )
+DFS_plot$plot <- DFS_plot$plot + 
+  annotate("text", 
+           x = 1, y = 0.5,
+           label = "HR 1.98 (IC95% 1.52–2.58)\np < 0.001",
+           hjust = 0, size = 3.5, fontface = "italic")
+DFS_plot
+```
+
+## COX
+
+###DFS
+```{r}
+coxmodel_dfs <- coxph(Surv(dfstime5, dfsstat5) ~ bwl_obs, data = ds_armA)
+
+exp(coef(coxmodel_dfs))
+
+exp(confint(coxmodel_dfs))
+```
+```{r}
+library(gtsummary)
+modeldfs <- tbl_regression(coxmodel_dfs,  exponentiate = TRUE)
+as_gt(modeldfs) %>% 
+              gt::tab_header("DFS Cox proportional hazards regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+
+The hazard ratio was 1.98 with a 95% confidence interval of 1.52, 2.58. Since the 95% confidence interval crosses where the HR=1, we fail to reject the null hypothesis that there is no significant differences in hazards between subjects in Treatment with FOLFOX and FOLFOX + Cetuximab
+
+### FU
+
+```{r}
+coxmodel_fu <- coxph(Surv(futime8, fustat8) ~ bwl_obs, data = ds_armA)
+
+exp(coef(coxmodel_fu))
+
+exp(confint(coxmodel_fu))
+```
+```{r}
+modelfu <- tbl_regression(coxmodel_fu,  exponentiate = TRUE)
+as_gt(modelfu) %>% 
+              gt::tab_header("OS Cox proportional hazards regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+The hazard ratio was 2.28 with a 95% confidence interval of 1.56, 3.31. Since the 95% confidence interval crosses where the HR=1, we fail to reject the null hypothesis that there is no significant differences in hazards between subjects in Treatment with FOLFOX and FOLFOX + Cetuximab
+
+###PG
+```{r eval=FALSE, include=FALSE}
+coxmodel_pg <- coxph(Surv(pgtime5, pgstat5) ~ bwl_obs, data = ds_armA)
+
+exp(coef(coxmodel_pg))
+
+exp(confint(coxmodel_pg))
+
+```
+
+```{r eval=FALSE, include=FALSE}
+modelpg <- tbl_regression(coxmodel_pg,  exponentiate = TRUE)
+as_gt(modelpg) %>% 
+              gt::tab_header("Cox proportional hazards regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+The hazard ratio was 1.09 with a 95% confidence interval of 0.92, 1.29. Since the 95% confidence interval crosses where the HR=1, we fail to reject the null hypothesis that there is no significant differences in hazards between subjects in Treatment with FOLFOX and FOLFOX + Cetuximab
+
+```{r eval=FALSE, fig.height=8, fig.width=10, include=FALSE}
+modeldfs_grob <- modeldfs |>
+  as_gt() |>
+  gt::as_gtable()
+library (patchwork)
+wrap_plots(DFS_plot$plot, modeldfs_grob)
+```
+
+```{r eval=FALSE, fig.height=10, fig.width=10, include=FALSE}
+modelfu_grob <- modelfu |>
+  as_gt() |>
+  gt::as_gtable()
+library (patchwork)
+wrap_plots(OS_plot$plot, modelfu_grob)
+```
+
+
+## Hazard Ratio
+
+https://cran.r-project.org/web/packages/survminer/vignettes/ggforest-show-interactions-hazard-ratio.html
+
+```{r}
+ds2 <- read.csv("NCT00079274_unido.csv") #vuelvo a subir el dataset porque me da error por el cambio de etiquetas
+
+res.cox.os <- coxph(Surv(futime8, fustat8) ~ agecat + sex + bmi2 + ps + histo_g  + nodes + stage_g + bwl_obs, data = ds2)
+res.cox.dfs <- coxph(Surv(dfstime5, dfsstat5) ~ agecat + sex + bmi2 + ps + histo_g + nodes + stage_g + bwl_obs, data = ds2)
+summary(res.cox.os, conf.int = FALSE)
+```
+
+```{r}
+library(survminer) #0.5.2
+
+#DE momento se queda asi, hasta tener el 2n ds. 
+
+ggforest(res.cox.os, 
+         data = ds2,
+         main = "Hazard Ratio – Overall Survival (OS)"
+         )
+
+ggforest(res.cox.dfs, 
+         data = ds2,
+         main = "Hazard Ratio – Disease-Free Survival (DFS)"
+         ) #fatla categorizar como está en el paper. sex vs female...etc 
+```
+
+```{r eval=FALSE, fig.height=11.5, fig.width=16.1, include=FALSE}
+library(summata)
+
+labels_trial <- c(
+    "agecat" = "Age",
+    "sex" = "Gender",
+    "bmi2"  = "Body Mass Index",
+    "ps" = "ECOG Performance Score",
+    "stage_g" = "T-Stage",
+    "nodes" = "N-Stage",
+    "bwl_obs" = "Bowel Obstruction"
+    )
+
+OS_forest <- coxforest(
+  x = res.cox.os,
+  data = ds2,
+  title = "OS Cox Regression: Survival Analysis",
+  labels = labels_trial
+)
+
+OS_forest
+
+DFS_forest <- coxforest(
+  x = res.cox.dfs,
+  data = ds2,
+  title = "DFS Cox Regression: Survival Analysis",
+  labels = labels_trial
+)
+DFS_forest
+```
+
+
+# 4. Análisis de respuesta tumoral (tratamiento y seguimiento)
+•	Evaluación de la adherencia al tratamiento, utilizando la variable treatment adherence.
+La adherencia al tratamiento es el grado en que el paciente sigue el tratamiento pautado según el protocolo del ensayo. Indica si el paciente:
+- recibió el tratamiento como estaba previsto,
+- lo completó total o parcialmente,
+- o hubo desviaciones, interrupciones o incumplimiento
+
+```{r}
+table(ds$adherenc)
+prop.table(table(ds$adherenc)) * 100
+ds <- ds |>
+  dplyr::mutate(
+    adherenc = dplyr::recode(factor(adherenc), `1` = "Yes", `2` = "No"),
+    endatrsn = dplyr::recode(factor(endatrsn),
+      `1`  = "Completed per protocol",
+      `2`  = "Refused further therapy",
+      `3`  = "Adverse Event/Side Effects",
+      `4`  = "Disease Progression (active tx)",
+      `5`  = "Alternative therapy",
+      `6`  = "Other Medical Problems",
+      `7`  = "Death on Study",
+      `8`  = "Other",
+      `10` = "Disease Progression (before tx)",
+      `11` = "Cytogenetic Resistance",
+      `12` = "Refused before starting protocol"
+    ),
+    obj_stat = dplyr::recode(factor(obj_stat),
+      `0` = "NED",
+      `6` = "Recurrence",
+      `8` = "Not evaluated"
+    )
+  )
+ggplot(ds, aes(x = adherenc, fill = arm)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Treatment Adherence by Arm", x = "Adherence", fill = "Arm")
+                   
+```
+
+•	Evaluación del número total de ciclos recibidos, utilizando la variable total number of treatment cycles received.
+
+```{r}
+table(ds$numcycle)
+prop.table(table(ds$numcycle)) * 100
+
+ggplot(ds, aes(x = arm, y = numcycle, fill = arm)) +
+  geom_boxplot() +
+  labs(
+    x = "Arm",
+    y= "Num. Cycles",
+    title = "Total Number of Treatment Cycles Received"
+  )
+                   
+```
+
+
+•	Evaluación del tiempo desde la aleatorización hasta la última terapia del protocolo, utilizando la variable time from randomization to last protocol therapy.
+Nota: esta variable es el tiempo transcurrido desde la aleatorización del paciente (momento en que se asigna al azar a uno de los brazos del estudio) hasta la última terapia recibida.
+
+```{r}
+table(ds$endat_time)
+prop.table(table(ds$endat_time)) * 100
+
+ggplot(ds, aes(x = endat_time, fill =  arm)) +
+  geom_histogram() +
+  labs(
+    x = "Num. days",
+    title = "Days from randomization until last protocol therapy was given",
+  )
+```
+
+
+•	Evaluación del motivo de finalización del tratamiento, utilizando la variable reason treatment ended.
+
+```{r}
+table(ds$endatrsn)
+prop.table(table(ds$endatrsn)) * 100
+
+ggplot(ds, aes(x = factor(endatrsn), fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Reason"
+  ) +
+  scale_x_discrete(labels = c("1" = "Treatment completed per protocol criteria", "2" = "Refused further therapy", "3" = "Adverse Event/Side Effects/Complications", "4" = "Disease Progression, relapse during active treatment", "5" = "Alternative therapy", "6" = "Other Medical Problems", "7" = "Death on Study", "8" = "Other", "10" = "Disease progression before active treatment", "11" = "Cytogenetic Resistance", "12" = "Refused further treatment before beginning protocol therapy"))
+```
+
+
+•	Evaluación del estado de respuesta en la evaluación más reciente, utilizando la variable response status at most recent assessment.
+
+```{r}
+table(ds$obj_stat)
+prop.table(table(ds$obj_stat)) * 100
+
+ggplot(ds, aes(x = factor(obj_stat), fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Responde status"
+  ) +
+  scale_x_discrete(labels = c("0" = "NED", "6" = "Recurrance", "8" = "Not evaluated"))
+```
+
+
+•	Evaluación de la pérdida de seguimiento, utilizando la variable lost to follow-up.
+
+```{r}
+table(ds$lost2fup)
+prop.table(table(ds$lost2fup)) * 100
+
+ds <- ds |>
+  dplyr::mutate(
+    lost2fup_clean = dplyr::if_else(lost2fup == "y", "Lost to follow-up", "Not lost", missing = "Not lost")
+  )
+
+ggplot(ds, aes(x = lost2fup_clean, fill = arm)) +
+  geom_bar(position = "dodge") +
+  coord_flip() + 
+  labs(
+    x = "Patient lost to follow up"
+  ) +
+  scale_x_discrete(labels = c("y" = "Yes", "Missing" = "No"))
+```
+
+
+
+# 5. Análisis de seguridad
+
+```{r}
+toxicidades <- c(
+  "Infection", "Neutropenia", "Paresthesias", "Acne_Rash",
+  "Diarrhea", "Fatigue", "Stomatitis_Mucositis", "Vomiting",
+  "Hypersensitivity", "Pneumonitis", "Nausea", "Infarction",
+  "Thrombosis", "Dyspnea", "Pneumonia", "Anorexia",
+  "Febrile.Neutropenia", "Hypomagnesemia", "Weight.loss"
+)
+
+
+ds_tox_long <- ds |>
+  dplyr::select(patref, arm, all_of(toxicidades)) |>
+  tidyr::pivot_longer(
+    cols      = all_of(toxicidades),
+    names_to  = "ae_term",
+    values_to = "present"
+  ) |>
+  dplyr::mutate(
+    ae_term = stringr::str_replace_all(ae_term, "_", " "),
+    ae_term = stringr::str_replace_all(ae_term, "\\.", " ")
+  )
+
+ds_grade_long <- ds |>
+  dplyr::select(patref, arm, starts_with("maxgrade_")) |>
+  tidyr::pivot_longer(
+    cols      = starts_with("maxgrade_"),
+    names_to  = "ae_term",
+    values_to = "maxgrade",
+    names_prefix = "maxgrade_"
+  ) |>
+  dplyr::filter(maxgrade > 0) |>   # solo los que tuvieron el AE
+  dplyr::mutate(
+    ae_term   = stringr::str_replace_all(ae_term, "_", " "),
+    ae_term   = stringr::str_replace_all(ae_term, "\\.", " "),
+    grade_cat = factor(maxgrade, levels = 1:5,
+                       labels = c("Grade 1", "Grade 2", "Grade 3",
+                                  "Grade 4", "Grade 5"))
+  )
+```
+
+```{r}
+
+tox_summary <- ds_tox_long |>
+  dplyr::group_by(ae_term, arm) |>
+  dplyr::summarize(
+    n_arm     = dplyr::n(),
+    n_present = sum(present, na.rm = TRUE),
+    pct       = n_present / n_arm,
+    .groups   = "drop"
+  )
+
+tox_pval <- ds_tox_long |>
+  dplyr::group_by(ae_term) |>
+  dplyr::summarize(
+    p_value = tryCatch({
+      tbl <- table(arm, present)
+      if (any(chisq.test(tbl)$expected < 5)) {
+        fisher.test(tbl)$p.value
+      } else {
+        chisq.test(tbl)$p.value
+      }
+    }, error = \(e) NA_real_),
+    .groups = "drop"
+  )
+
+tox_table <- tox_summary |>
+  tidyr::pivot_wider(
+    id_cols     = ae_term,
+    names_from  = arm,
+    values_from = c(n_present, pct)
+  ) |>
+  dplyr::left_join(tox_pval, by = "ae_term") |>
+  dplyr::arrange(desc(`n_present_FOLFOX + Cetuximab`))
+
+tox_table |>
+  gt(rowname_col = "ae_term") |>
+  tab_header(title = "Adverse Event Incidence by Treatment Arm") |>
+  fmt_integer(columns = starts_with("n_present")) |>
+  fmt_percent(columns = starts_with("pct"), decimals = 1) |>
+  cols_merge(
+    columns = c("n_present_FOLFOX", "pct_FOLFOX"),
+    pattern = "{1} ({2})"
+  ) |>
+  cols_merge(
+    columns = c("n_present_FOLFOX + Cetuximab", "pct_FOLFOX + Cetuximab"),
+    pattern = "{1} ({2})"
+  ) |>
+  cols_label(
+    `n_present_FOLFOX`             = "FOLFOX",
+    `n_present_FOLFOX + Cetuximab` = "FOLFOX + Cetuximab",
+    p_value                        = md("*P* Value")
+  ) |>
+  fmt_number(columns = "p_value", decimals = 3) |>
+  sub_small_vals(columns = "p_value", threshold = 0.001) |>
+  sub_missing(columns = "p_value", missing_text = "") |>
+  tab_footnote(
+    footnote  = "Chi-square or Fisher's exact test.",
+    locations = cells_column_labels(columns = "p_value")
+  )
+```
+
+```{r}
+tox_summary |>
+  dplyr::filter(n_present > 0) |>
+  ggplot(aes(x = reorder(ae_term, pct), y = pct, fill = arm)) +
+  geom_col(position = "dodge") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  coord_flip() +
+  labs(
+    title = "Incidence of Adverse Events by Treatment Arm",
+    x     = NULL,
+    y     = "Incidence (%)",
+    fill  = "Arm"
+  ) +
+  theme_bw()
+
+ds_grade_long |>
+  dplyr::filter(!is.na(grade_cat)) |>
+  ggplot(aes(x = reorder(ae_term, maxgrade), fill = grade_cat)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  coord_flip() +
+  facet_wrap(~ arm) +
+  labs(
+    title = "Distribution of Adverse Event Grades by Arm",
+    x     = NULL,
+    y     = "Proportion",
+    fill  = "Grade"
+  ) +
+  scale_fill_manual(values = c(
+    "Grade 1" = "#2ecc71",
+    "Grade 2" = "#f1c40f",
+    "Grade 3" = "#e67e22",
+    "Grade 4" = "#e74c3c",
+    "Grade 5" = "#8e44ad"
+  )) +
+  theme_bw()
+```
+

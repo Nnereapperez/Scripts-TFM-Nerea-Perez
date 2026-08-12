@@ -1,0 +1,2273 @@
+---
+title: "NCT011500045"
+author: "Claudia Pascual Tomàs"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(readr)
+library(ggplot2)
+library(gridExtra)
+library(patchwork)
+library(rlang)
+library(gt)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(summata)
+library(forestploter)
+library(dplyr)
+library(broom)
+library(grid)
+library(philentropy)
+library(tidyr)
+```
+
+
+```{r}
+real <- read.csv("NCT01150045_unido.csv", 
+                 stringsAsFactors = FALSE,
+                 na.strings = c("NA", "", "Unknown"))
+
+sint <- read.csv("NCT01150045_synthetic_clean.csv", 
+                 stringsAsFactors = FALSE,
+                 na.strings = c("NA", "", "Unknown"))
+
+View(real)
+View(sint)
+```
+
+
+# 1. Análisis descriptivo de la población
+
+•	Distribución de la categoría de edad, utilizando la variable age.
+```{r}
+real$dataset <- "Real"
+sint$dataset <- "Sintético"
+
+cols <- c("age", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+ds$age <- as.numeric(ds$age)
+
+ageplot <- ggplot(ds, aes(x = age, fill = dataset)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 position = "identity", alpha = 0.5, bins = 30) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Age", y = "Densitat", title = "Age", fill = NULL) +
+  theme_minimal()
+ageplot
+```
+
+•	Distribución de sexo, utilizando la variable sex.
+```{r}
+cols <- c("sex", "backbone", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, sex) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+sexplot <- ggplot(ds_pct, aes(x = sex, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Sex", y = "%", title = "Sex", fill = NULL) +
+  theme_minimal()
+sexplot
+```
+
+•	Distribución de raza, utilizando la variable race category.
+```{r}
+cols <- c("race", "backbone", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, race) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+raceplot <- ggplot(ds_pct, aes(x = race, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Race", y = "%", title = "Race", fill = NULL) +
+  theme_minimal()
+raceplot
+```
+
+•	Distribución del estado funcional ECOG, utilizando la variable ECOG performance status.
+```{r}
+cols <- c("ps", "backbone", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, ps) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+ecogplot <- ggplot(ds_pct, aes(x = ps, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "ECOG", y = "%", title = "ECOG", fill = NULL) +
+  theme_minimal()
+ecogplot
+```
+
+•	Distribución del índice de masa corporal, utilizando la variable body mass index.
+
+```{r}
+real$dataset <- "Real"
+sint$dataset <- "Sintético"
+
+cols <- c("bmi", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+ds$bmi <- as.numeric(ds$bmi)
+
+bmiplot <- ggplot(ds, aes(x = bmi, fill = dataset)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 position = "identity", alpha = 0.5, bins = 30) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "BMI", y = "Density", title = "BMI", fill = NULL) +
+  theme_minimal()
+bmiplot
+```
+
+•	Distribución de la categoría de aspirina, utilizando la variable aspirin
+
+```{r}
+cols <- c("aspirin", "backbone", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, aspirin) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+aspirinplot <- ggplot(ds_pct, aes(x = aspirin, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Aspirin Use", y = "%", title = "Aspirin Use", fill = NULL) +
+  theme_minimal()
+aspirinplot
+```
+
+•	Distribución del número de ganglios positivos, utilizando la variable n_stage.
+
+```{r}
+cols <- c("nstage_cal", "backbone", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, nstage_cal) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+nodosplot <- ggplot(ds_pct, aes(x = nstage_cal, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Nodal Stages", y = "%", title = "Nodal Stages", fill = NULL) +
+  theme_minimal()
+nodosplot
+```
+
+Distribución t_stage
+```{r}
+cols <- c("tstage", "backbone", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, tstage) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+tstagplot <- ggplot(ds_pct, aes(x = tstage, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Invasion", y = "%", title = "Extent of invasion through bowel wall", fill = NULL) +
+  theme_minimal()
+tstagplot
+```
+
+Distribución sidedness
+```{r}
+cols <- c("sidedness", "backbone", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, sidedness) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+sideplot <- ggplot(ds_pct, aes(x = sidedness, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Tumor location", y = "%", title = "Tumor location", fill = NULL) +
+  theme_minimal()
+sideplot
+```
+
+```{r, fig.height=8, fig.width=10}
+combined <- (ageplot + sexplot + raceplot) / (ecogplot + bmiplot + aspirinplot) / (nodosplot + tstagplot + sideplot) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Basal distributions")
+combined
+
+grid.arrange(ageplot, sexplot, raceplot, ecogplot, bmiplot, aspirinplot, nodosplot, tstagplot, sideplot, ncol = 3, nrow = 3, top = "Distribuciones basales")
+```
+
+```{r}
+ggsave("distribucions_basals_NCT01150045.png", combined, 
+       width = 14, height = 12, dpi = 300)
+```
+
+KL divergence:
+```{r}
+# Analisi univariat: distribucions reals vs sintetiques + I1 (KL normalitzada)
+eps <- 1e-5
+
+#kl categòrques
+kl_cat <- function(r, s) {
+  r <- r[!is.na(r)]
+  s <- s[!is.na(s)]
+  niv <- sort(unique(c(r, s)))
+  P <- as.numeric(table(factor(r, niv)) / length(r))
+  Q <- as.numeric(table(factor(s, niv)) / length(s))
+  KL(rbind(P, Q), unit = "log", epsilon = eps) / H(P, unit = "log") * 100
+}
+# kl continues
+kl_cont <- function(r, s) {
+  r <- r[!is.na(r) & is.finite(r)]
+  s <- s[!is.na(s) & is.finite(s)]
+  breaks <- seq(min(c(r,s)), max(c(r,s)), length.out = 21)
+  P <- as.numeric(table(cut(r, breaks, include.lowest = TRUE))) / length(r)
+  Q <- as.numeric(table(cut(s, breaks, include.lowest = TRUE))) / length(s)
+  KL(rbind(P, Q), unit = "log", epsilon = eps) / H(P, unit = "log") * 100
+}
+
+tabla_kl<- data.frame(
+  Variable = c("Age","Sex","Race","ECOG","BMI",
+               "Aspirin Use", "T Stage","Nodal Stages",
+               "Backbone", "Tumor Location","Disease free survival","Overall survival"),
+  I1 = round(c(
+    kl_cont(real$age, sint$age),
+    kl_cat(real$sex, sint$sex),
+    kl_cat(real$race, sint$race),
+    kl_cat(real$ps, sint$ps),
+    kl_cont(real$bmi[real$bmi>0], sint$bmi[sint$bmi>0]),
+    kl_cat(real$aspirin, sint$aspirin),
+    kl_cat(real$tstage, sint$tstage),
+    kl_cat(real$nstage_cal, sint$nstage_cal),
+    kl_cat(real$sidedness, sint$sidedness),
+    kl_cat(real$backbone, sint$backbone),
+    kl_cont(real$dfs_time, sint$dfs_time),
+    kl_cont(real$os_time, sint$os_time)
+  ), 3)
+) %>%
+  mutate(I1 = paste0(I1, "%")) %>%
+  gt() %>%
+  cols_label(Variable = "Variable", I1 = md("*I*<sub>1</sub>")) %>%
+  tab_header(title = md("**Tabla X.** Comparación de distribuciones univariadas."))
+tabla_kl
+```
+
+```{r}
+#gtsave(tabla_kl, "tabla_kl_NCT01150045.docx", vwidth = 1200)
+```
+
+
+# 2.  Comparación de características basales entre brazos
+
+<https://gt.rstudio.com/articles/case-study-clinical-tables.html>
+https://github.com/philbowsher/Clinical-Tables-in-R-with-gt/blob/master/gt-01-14_2_01.Rmd 
+
+```{r}
+sint <- sint |>
+  #extraer duración del arm original
+  dplyr::mutate(
+    duration = dplyr::case_when(
+      grepl("3 months", arm) ~ "3 months",
+      grepl("6 months", arm) ~ "6 months"
+    ),
+    # recodificar arm a binario
+    arm = dplyr::case_when(
+      grepl("Celecoxib", arm) ~ "Celecoxib",
+      grepl("Placebo", arm) ~ "Placebo"
+    ),
+     arm = factor(arm, levels = c("Placebo", "Celecoxib"))
+  ) |>
+  #ordenar manualmente race:
+  dplyr::mutate(
+    race = factor(race, levels = c(
+      "White", "Black or African American",
+      "Asian", "All others or not reported"
+    )),
+    #nueva variable para poder usar 4 brazos par asurvival analysisis
+    arm_dur = factor(dplyr::case_when(
+      arm == "Celecoxib" & duration == "3 months" ~ "FOLFOX+Celecoxib (3m)",
+      arm == "Celecoxib" & duration == "6 months" ~ "FOLFOX+Celecoxib (6m)",
+      arm == "Placebo"   & duration == "3 months" ~ "FOLFOX+Placebo (3m)",
+      arm == "Placebo"   & duration == "6 months" ~ "FOLFOX+Placebo (6m)"
+    ), levels = c("FOLFOX+Placebo (6m)", "FOLFOX+Celecoxib (6m)",
+                  "FOLFOX+Placebo (3m)", "FOLFOX+Celecoxib (3m)"))
+  )
+
+custom_summary <- function(df, group_var, sum_var) {
+  group_var <- rlang::ensym(group_var)
+  sum_var <- rlang::ensym(sum_var)
+
+  is_categorical <-
+    is.character(df[[as_string(sum_var)]]) |
+    is.factor(df[[as_string(sum_var)]])
+
+  if (is_categorical) {
+    category_lbl <-
+      as_string(sum_var)
+#para quitar los NA de la tabla. modificado con chatgpt
+    df_out <-
+      df |>
+      dplyr::filter(!is.na(!!sum_var)) |> #chatgpt
+      dplyr::group_by(!!group_var) |>
+      dplyr::mutate(den = dplyr::n()) |> #chatgpt
+      dplyr::group_by(!!group_var, !!sum_var) |>
+      dplyr::summarize(
+        val = dplyr::n(),
+        den = unique(den),
+        pct = val / den,
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = !!sum_var, names_from = !!group_var,
+        values_from = c(val, den, pct)
+      ) |>
+      dplyr::rename(label = !!sum_var) |>
+      dplyr::mutate(
+        across(where(is.numeric), ~ ifelse(is.na(.), 0, .)),
+        category = category_lbl
+      )
+  } else {
+    category_lbl <- as_string(sum_var)
+
+    df_out <-
+      df |>
+      dplyr::group_by(!!group_var) |>
+      dplyr::summarize(
+        n = sum(!is.na(!!sum_var)),
+        mean = mean(!!sum_var, na.rm = TRUE),
+        sd = sd(!!sum_var, na.rm = TRUE),
+        median = median(!!sum_var, na.rm = TRUE),
+        lcl = min(!!sum_var, na.rm = TRUE),
+        ucl = max(!!sum_var, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_longer(
+        cols = c(mean, median), #quito n, no hace falta
+        names_to = "label",
+        values_to = "val"
+      ) |>
+      dplyr::mutate(
+        sd = ifelse(label == "mean", sd, NA),
+        label = dplyr::recode(
+          label,
+          "mean" = "Mean (SD)",
+          "median" = "Median (Range)"
+        )
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = label,
+        names_from = !!group_var,
+        values_from = c(val, sd, lcl, ucl)
+      ) |>
+      dplyr::mutate(category = category_lbl)
+  }
+
+  return(df_out)
+}
+#compute_pvalue hecho con claude
+compute_pvalue <- function(df, group_var, sum_var) {
+  group_var_str <- rlang::as_string(rlang::ensym(group_var))
+  sum_var_str   <- rlang::as_string(rlang::ensym(sum_var))
+  
+  is_categorical <- is.character(df[[sum_var_str]]) | is.factor(df[[sum_var_str]])
+  
+  df_clean <- df[!is.na(df[[sum_var_str]]) & !is.na(df[[group_var_str]]), ]
+  
+  if (is_categorical) {
+    tbl       <- table(df_clean[[group_var_str]], df_clean[[sum_var_str]])
+    p         <- suppressWarnings(chisq.test(tbl)$p.value)
+    test_used <- "Chi-square"
+    
+  } else {
+    groups    <- split(df_clean[[sum_var_str]], df_clean[[group_var_str]])
+    p         <- wilcox.test(groups[[1]], groups[[2]])$p.value
+    test_used <- "Wilcoxon rank-sum"
+  }
+  
+  tibble::tibble(category = sum_var_str, p_value = p, test_used = test_used)
+}
+
+adsl_summary <-
+  dplyr::filter(sint, primary_analysis == "Yes") |> #cambiamos rnadomized por primany_analyisis
+  (\(data) purrr::map_df(
+    .x = dplyr::vars(age, sex, race, ethnicity, aspirin, bmi, ps, tstage, nstage_cal, sidedness),
+    .f = \(x) custom_summary(df = data, group_var = arm, sum_var = !!x) 
+  ))()
+#esto lo ha hecho chatgpt:
+adsl_summary <- adsl_summary |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      age = "Age, y",
+      sex = "Sex",
+      race = "Race",
+      ethnicity = "Hispanic or Latino",
+      bmi = "BMI",
+      aspirin = "Aspirin",
+      ps = "ECOG performance Status",
+      tstage = "Extent of invasion through bowel wall, No./total (%)",
+      nstage_cal = "Nodal Stage",
+      sidedness = "Tumor location, No./total. (%)"
+    )
+  )
+adsl_summary <- adsl_summary |>
+  dplyr::filter(!(category == "Aspirin" & label == "No")) |> #borramos la fila no
+  dplyr::filter(!(category == "Hispanic or Latino" & label == "Not Hispanic or Latino")) |> # para qutar not hipsnaic or latino
+  dplyr::mutate(
+    label = dplyr::case_when(
+      category == "Aspirin" & label == "Yes" ~ "Low dose aspirin usage",
+      TRUE ~ label #cambio la etiqueta Yes por Low dose..
+    )
+  )
+
+adsl_summary <- adsl_summary |>
+  dplyr::mutate(
+    category = dplyr::case_when(
+      category == "Aspirin" ~ "",
+      TRUE ~ category
+    )
+  )
+
+adsl_summary <- adsl_summary |>
+  dplyr::mutate(
+    label = dplyr::case_when(
+      category == "BMI" & label == "Median (Range)" ~ "Median",
+      TRUE ~ label,
+    )
+  ) 
+
+pvalue_df <- purrr::map_df(
+  .x = c("age", "sex", "race", "ethnicity", "aspirin",
+         "bmi", "tstage", "nstage_cal", "sidedness", "ps"),
+  .f = ~ compute_pvalue(df = sint, group_var = arm, sum_var = !!rlang::sym(.x))
+)
+
+pvalue_df <- pvalue_df |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      age = "Age, y",
+      sex = "Sex",
+      race = "Race",
+      ethnicity = "Hispanic or Latino",
+      bmi = "BMI",
+      aspirin = "Aspirin",
+      ps = "ECOG performance Status",
+      tstage = "Extent of invasion through bowel wall, No./total (%)",
+      nstage_cal = "Nodal Stage",
+      sidedness = "Tumor location, No./total. (%)"
+    )
+  )
+
+adsl_summary <- adsl_summary |>
+  dplyr::group_by(category) |>
+  dplyr::mutate(row_num = dplyr::row_number()) |>
+  dplyr::ungroup() |>
+  dplyr::left_join(pvalue_df, by = "category") |>
+  dplyr::mutate(
+    p_value   = dplyr::if_else(row_num == 1, p_value, NA_real_),
+    test_used = dplyr::if_else(row_num == 1, test_used, NA_character_)
+  ) |>
+  dplyr::select(-row_num)
+
+
+```
+
+```{r}
+
+sint_tbl <-
+  adsl_summary |>
+  gt(
+    rowname_col = "label",
+    groupname_col = "category"
+  ) |>
+  tab_header(
+    title = "Baseline Patient Characteristics in Primary Analysis Population" )
+
+sint_tbl <-
+  sint_tbl |>
+  fmt_integer(
+    columns = starts_with(c("val_")),
+    rows = !(label %in% c("Mean (SD)", "Median")) #para que sean todos los valores enteros excepto media y mediana
+  ) |>
+  fmt_percent(
+    columns = starts_with("pct_"),
+    decimals = 1,
+  ) |>
+  fmt_number(
+    columns = starts_with("val_"),
+    rows = label == "Mean (SD)",
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("sd_"),
+    rows = label == "Mean (SD)",
+    decimals = 2
+  ) |>
+  fmt_number(
+    columns = starts_with("lcl_"),
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("ucl_"),
+    decimals = 1
+  )|>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median (Range)",
+  decimals = 1
+  ) |>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median",
+  decimals = 1
+  )
+
+sint_tbl <- sint_tbl |>
+  cols_merge(
+    columns = c("val_Placebo", "lcl_Placebo", "ucl_Placebo"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_Celecoxib", "lcl_Celecoxib", "ucl_Celecoxib"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) 
+sint_tbl <-
+  sint_tbl |>
+  cols_merge(
+    columns = c("val_Placebo", "pct_Placebo", "sd_Placebo"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  ) |>
+  cols_merge(
+    columns = c("val_Celecoxib", "pct_Celecoxib", "sd_Celecoxib"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  )
+sint_tbl <- sint_tbl |>
+  cols_merge(
+    columns = c("val_Placebo", "den_Placebo", "pct_Placebo"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_Celecoxib", "den_Celecoxib", "pct_Celecoxib"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "{1}/{2} ({3})"
+  )
+
+
+sint_tbl <-
+  sint_tbl |>
+  tab_stub_indent(
+    rows = everything(),
+    indent = 5
+  ) |>
+  opt_align_table_header(align = "left")
+sint_tbl <-
+  sint_tbl |>
+  cols_width(
+    starts_with("val_") ~ px(200),
+    1 ~ px(250)
+  ) |>
+  cols_align(
+    align = "center",
+    columns = starts_with("val_")
+  )
+
+### Count subjects per arm and summarize values in a list CLAUDE
+arm_n <-
+  sint |>
+  dplyr::filter(primary_analysis == "Yes") |>
+  dplyr::group_by(arm) |>
+  dplyr::summarize(
+    lbl = sprintf("%s N=%i (100%%)", unique(arm), dplyr::n()),
+    .groups = "drop"
+  ) |>
+  dplyr::arrange(arm)
+
+collbl_list <- as.list(arm_n$lbl)
+names(collbl_list) <- paste0("val_", arm_n$arm)
+
+sint_tbl <-
+  sint_tbl |>
+  cols_label(.list = collbl_list)
+
+sint_tbl <- sint_tbl |>
+  # Formato del p-valor
+  fmt_number(
+    columns = "p_value",
+    decimals = 3
+  ) |>
+  # Valores muy pequeños como "<0.001"
+  sub_small_vals(
+    columns  = "p_value",
+    threshold = 0.001
+  ) |>
+  # Celdas vacías (NA) en blanco
+  sub_missing(
+    columns = "p_value",
+    missing_text = ""
+  ) |>
+  cols_label(p_value = md("*P* Value")) |>
+  cols_align(align = "center", columns = "p_value") |>
+  cols_width("p_value" ~ px(100)) |>
+  cols_hide(columns = "test_used") |>
+  # Nota al pie explicando los tests usados
+  tab_footnote(
+    footnote = "Pearson's Chi-squared test for categorical variables; Wilcoxon rank-sum test for continuous variables.",
+    locations = cells_column_labels(columns = "p_value")
+  )
+
+sint_tbl
+
+```
+
+```{r}
+custom_summary <- function(df, group_var, sum_var) {
+  group_var <- rlang::ensym(group_var)
+  sum_var <- rlang::ensym(sum_var)
+
+  is_categorical <-
+    is.character(df[[as_string(sum_var)]]) |
+    is.factor(df[[as_string(sum_var)]])
+
+  if (is_categorical) {
+    category_lbl <-
+      as_string(sum_var)
+#para quitar los NA de la tabla. modificado con chatgpt
+    df_out <-
+      df |>
+      dplyr::filter(!is.na(!!sum_var)) |> #chatgpt
+      dplyr::group_by(!!group_var) |>
+      dplyr::mutate(den = dplyr::n()) |> #chatgpt
+      dplyr::group_by(!!group_var, !!sum_var) |>
+      dplyr::summarize(
+        val = dplyr::n(),
+        den = unique(den),
+        pct = val / den,
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = !!sum_var, names_from = !!group_var,
+        values_from = c(val, den, pct)
+      ) |>
+      dplyr::rename(label = !!sum_var) |>
+      dplyr::mutate(
+        across(where(is.numeric), ~ ifelse(is.na(.), 0, .)),
+        category = category_lbl
+      )
+  } else {
+    category_lbl <- as_string(sum_var)
+
+    df_out <-
+      df |>
+      dplyr::group_by(!!group_var) |>
+      dplyr::summarize(
+        n = sum(!is.na(!!sum_var)),
+        mean = mean(!!sum_var, na.rm = TRUE),
+        sd = sd(!!sum_var, na.rm = TRUE),
+        median = median(!!sum_var, na.rm = TRUE),
+        lcl = min(!!sum_var, na.rm = TRUE),
+        ucl = max(!!sum_var, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_longer(
+        cols = c(mean, median), #quito n, no hace falta
+        names_to = "label",
+        values_to = "val"
+      ) |>
+      dplyr::mutate(
+        sd = ifelse(label == "mean", sd, NA),
+        label = dplyr::recode(
+          label,
+          "mean" = "Mean (SD)",
+          "median" = "Median (Range)"
+        )
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = label,
+        names_from = !!group_var,
+        values_from = c(val, sd, lcl, ucl)
+      ) |>
+      dplyr::mutate(category = category_lbl)
+  }
+
+  return(df_out)
+}
+#compute_pvalue hecho con claude
+compute_pvalue <- function(df, group_var, sum_var) {
+  group_var_str <- rlang::as_string(rlang::ensym(group_var))
+  sum_var_str   <- rlang::as_string(rlang::ensym(sum_var))
+  
+  is_categorical <- is.character(df[[sum_var_str]]) | is.factor(df[[sum_var_str]])
+  
+  df_clean <- df[!is.na(df[[sum_var_str]]) & !is.na(df[[group_var_str]]), ]
+  
+  if (is_categorical) {
+    tbl       <- table(df_clean[[group_var_str]], df_clean[[sum_var_str]])
+    p         <- suppressWarnings(chisq.test(tbl)$p.value)
+    test_used <- "Chi-square"
+    
+  } else {
+    groups    <- split(df_clean[[sum_var_str]], df_clean[[group_var_str]])
+    p         <- wilcox.test(groups[[1]], groups[[2]])$p.value
+    test_used <- "Wilcoxon rank-sum"
+  }
+  
+  tibble::tibble(category = sum_var_str, p_value = p, test_used = test_used)
+}
+
+adsl_summary <-
+  dplyr::filter(sint, primary_analysis == "Yes") |> #cambiamos rnadomized por primany_analyisis
+  (\(data) purrr::map_df(
+    .x = dplyr::vars(age, sex, race, ethnicity, aspirin, bmi, ps, tstage, nstage_cal, sidedness),
+    .f = \(x) custom_summary(df = data, group_var = arm_dur, sum_var = !!x) 
+  ))()
+#esto lo ha hecho chatgpt:
+adsl_summary <- adsl_summary |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      age = "Age, y",
+      sex = "Sex",
+      race = "Race",
+      ethnicity = "Hispanic or Latino",
+      bmi = "BMI",
+      aspirin = "Aspirin",
+      ps = "ECOG performance Status",
+      tstage = "Extent of invasion through bowel wall, No./total (%)",
+      nstage_cal = "Nodal Stage",
+      sidedness = "Tumor location, No./total. (%)"
+    )
+  )
+adsl_summary <- adsl_summary |>
+  dplyr::filter(!(category == "Aspirin" & label == "No")) |> #borramos la fila no
+  dplyr::filter(!(category == "Hispanic or Latino" & label == "Not Hispanic or Latino")) |> # para qutar not hipsnaic or latino
+  dplyr::mutate(
+    label = dplyr::case_when(
+      category == "Aspirin" & label == "Yes" ~ "Low dose aspirin usage",
+      TRUE ~ label #cambio la etiqueta Yes por Low dose..
+    )
+  )
+
+adsl_summary <- adsl_summary |>
+  dplyr::mutate(
+    category = dplyr::case_when(
+      category == "Aspirin" ~ "",
+      TRUE ~ category
+    )
+  )
+
+adsl_summary <- adsl_summary |>
+  dplyr::mutate(
+    label = dplyr::case_when(
+      category == "BMI" & label == "Median (Range)" ~ "Median",
+      TRUE ~ label,
+    )
+  ) 
+
+pvalue_df <- purrr::map_df(
+  .x = c("age", "sex", "race", "ethnicity", "aspirin",
+         "bmi", "tstage", "nstage_cal", "sidedness", "ps"),
+  .f = ~ compute_pvalue(df = sint, group_var = arm_dur, sum_var = !!rlang::sym(.x))
+)
+
+pvalue_df <- pvalue_df |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      age = "Age, y",
+      sex = "Sex",
+      race = "Race",
+      ethnicity = "Hispanic or Latino",
+      bmi = "BMI",
+      aspirin = "Aspirin",
+      ps = "ECOG performance Status",
+      tstage = "Extent of invasion through bowel wall, No./total (%)",
+      nstage_cal = "Nodal Stage",
+      sidedness = "Tumor location, No./total. (%)"
+    )
+  )
+
+adsl_summary <- adsl_summary |>
+  dplyr::group_by(category) |>
+  dplyr::mutate(row_num = dplyr::row_number()) |>
+  dplyr::ungroup() |>
+  dplyr::left_join(pvalue_df, by = "category") |>
+  dplyr::mutate(
+    p_value   = dplyr::if_else(row_num == 1, p_value, NA_real_),
+    test_used = dplyr::if_else(row_num == 1, test_used, NA_character_)
+  ) |>
+  dplyr::select(-row_num)
+
+
+```
+
+```{r}
+
+sint_tbl2 <-
+  adsl_summary |>
+  gt(
+    rowname_col = "label",
+    groupname_col = "category"
+  ) |>
+  tab_header(
+    title = "Baseline Patient Characteristics in Intent-to-Treat Population by 4 Treatment Arms" )
+
+sint_tbl2 <-
+  sint_tbl2 |>
+  fmt_integer(
+    columns = starts_with(c("val_")),
+    rows = !(label %in% c("Mean (SD)", "Median")) #para que sean todos los valores enteros excepto media y mediana
+  ) |>
+  fmt_percent(
+    columns = starts_with("pct_"),
+    decimals = 1,
+  ) |>
+  fmt_number(
+    columns = starts_with("val_"),
+    rows = label == "Mean (SD)",
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("sd_"),
+    rows = label == "Mean (SD)",
+    decimals = 2
+  ) |>
+  fmt_number(
+    columns = starts_with("lcl_"),
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("ucl_"),
+    decimals = 1
+  )|>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median (Range)",
+  decimals = 1
+  ) |>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median",
+  decimals = 1
+  )
+
+sint_tbl2 <- sint_tbl2 |>
+  cols_merge(
+    columns = c("val_FOLFOX+Placebo (3m)", "lcl_FOLFOX+Placebo (3m)", "ucl_FOLFOX+Placebo (3m)"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Celecoxib (3m)", "lcl_FOLFOX+Celecoxib (3m)", "ucl_FOLFOX+Celecoxib (3m)"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Celecoxib (6m)", "lcl_FOLFOX+Celecoxib (6m)", "ucl_FOLFOX+Celecoxib (6m)"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Placebo (6m)", "lcl_FOLFOX+Placebo (6m)", "ucl_FOLFOX+Placebo (6m)"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  )
+sint_tbl2 <-
+  sint_tbl2 |>
+  cols_merge(
+    columns = c("val_FOLFOX+Placebo (3m)", "pct_FOLFOX+Placebo (3m)", "sd_FOLFOX+Placebo (3m)"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Celecoxib (3m)", "pct_FOLFOX+Celecoxib (3m)", "sd_FOLFOX+Celecoxib (3m)"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Placebo (6m)", "pct_FOLFOX+Placebo (6m)", "sd_FOLFOX+Placebo (6m)"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  )|>
+  cols_merge(
+    columns = c("val_FOLFOX+Celecoxib (6m)", "pct_FOLFOX+Celecoxib (6m)", "sd_FOLFOX+Celecoxib (6m)"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  )
+sint_tbl2 <- sint_tbl2 |>
+  cols_merge(
+    columns = c("val_FOLFOX+Placebo (3m)", "den_FOLFOX+Placebo (3m)", "pct_FOLFOX+Placebo (3m)"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Celecoxib (3m)", "den_FOLFOX+Celecoxib (3m)", "pct_FOLFOX+Celecoxib (3m)"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Placebo (6m)", "den_FOLFOX+Placebo (6m)", "pct_FOLFOX+Placebo (6m)"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX+Celecoxib (6m)", "den_FOLFOX+Celecoxib (6m)", "pct_FOLFOX+Celecoxib (6m)"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)",
+      "Tumor location, No./total. (%)", "Hispanic or Latino"
+    ),
+    pattern = "{1}/{2} ({3})"
+  )
+
+
+sint_tbl2 <-
+  sint_tbl2 |>
+  tab_stub_indent(
+    rows = everything(),
+    indent = 5
+  ) |>
+  opt_align_table_header(align = "left")
+sint_tbl2 <-
+  sint_tbl2 |>
+  cols_width(
+    starts_with("val_") ~ px(200),
+    1 ~ px(250)
+  ) |>
+  cols_align(
+    align = "center",
+    columns = starts_with("val_")
+  )
+
+### Count subjects per arm and summarize values in a list CLAUDE
+arm_n <-
+  sint |>
+  dplyr::filter(primary_analysis == "Yes") |>
+  dplyr::group_by(arm_dur) |>
+  dplyr::summarize(
+    lbl = sprintf("%s N=%i (100%%)", unique(arm_dur), dplyr::n()),
+    .groups = "drop"
+  ) |>
+  dplyr::arrange(arm_dur)
+
+collbl_list <- as.list(arm_n$lbl)
+names(collbl_list) <- paste0("val_", arm_n$arm_dur)
+
+sint_tbl2 <-
+  sint_tbl2 |>
+  cols_label(.list = collbl_list)
+
+sint_tbl2 <- sint_tbl2 |>
+  # Formato del p-valor
+  fmt_number(
+    columns = "p_value",
+    decimals = 3
+  ) |>
+  # Valores muy pequeños como "<0.001"
+  sub_small_vals(
+    columns  = "p_value",
+    threshold = 0.001
+  ) |>
+  # Celdas vacías (NA) en blanco
+  sub_missing(
+    columns = "p_value",
+    missing_text = ""
+  ) |>
+  cols_label(p_value = md("*P* Value")) |>
+  cols_align(align = "center", columns = "p_value") |>
+  cols_width("p_value" ~ px(100)) |>
+  cols_hide(columns = "test_used") |>
+  # Nota al pie explicando los tests usados
+  tab_footnote(
+    footnote = "Pearson's Chi-squared test for categorical variables; Wilcoxon rank-sum test for continuous variables.",
+    locations = cells_column_labels(columns = "p_value")
+  )
+
+sint_tbl2
+
+```
+
+<https://gt.rstudio.com/reference/gtsave.html>
+
+```{r}
+#sint_tbl |> gtsave("sint_tbl.docx")
+#sint_tbl2 |> gtsave("sint_tbl2.docx")
+```
+
+# 3. Survival Analysis in R
+
+https://rpubs.com/mbounthavong/survival_analysis_in_r 
+
+## Kaplan Meier
+###Disease-Free and Overall Survival by Celecoxib vs Placebo
+
+```{r Preprocesamiento surivival analysis}
+
+table(sint$os_stat)
+
+table(sint$dfs_stat)
+
+sint <- sint |>
+  dplyr::mutate(
+    os_event = dplyr::case_when(
+      os_stat == "1=Event" ~ 1L,#La L fuerza el número a ser integer en lugar de double (numérico con decimales)
+      os_stat == "0=Censor" ~ 0L
+    ),
+    dfs_event = dplyr::case_when(
+      dfs_stat == "1=Event" ~ 1L,
+      dfs_stat == "0=Censor" ~ 0L
+    ),
+  )
+
+#corte en 6 años
+sint <- sint |>
+  dplyr::mutate(
+    os_event  = dplyr::if_else(os_time  > 72.0000001, 0L, os_event),
+    os_time   = dplyr::if_else(os_time  > 72.0000001, 72.0000001, os_time),
+    dfs_event = dplyr::if_else(dfs_time > 72.0000001, 0L, dfs_event),
+    dfs_time  = dplyr::if_else(dfs_time > 72.0000001, 72.0000001, dfs_time)
+  )
+
+```
+
+```{r, fig.width=8, fig.height=8}
+
+kmcurve_os_2 <- survfit(Surv(os_time, os_event) ~arm, data = sint)
+
+OS_bwl_plot_2 <- ggsurvplot(kmcurve_os_2,
+           conf.int = TRUE,
+           pval = FALSE,
+           risk.table = TRUE,
+           legend.labs = c("Placebo", "Celecoxib"),
+           title = "OS Kaplan-Meier curve",
+           fun = "event", #"event" plots cumulative events (f(y) = 1-y)
+           ylab = "Died (%)",
+           surv.scale = "percent",
+           break.y.by = 0.1, #para que el eje y tenga marcas cada 10 puntos
+           ylim = c(0, 0.25), 
+           xscale = "m_y",
+           xlim = c(0, 72.0000001),  #para que el eje x vaya de 0 a 6 años (72 meses)
+           break.x.by = 12
+           )
+
+OS_bwl_plot_2
+
+kmcurve_dfs_2 <- survfit(Surv(dfs_time, dfs_event) ~ arm, data = sint)
+
+DFS_bwl_plot_2<- ggsurvplot(kmcurve_dfs_2,
+           conf.int = TRUE,
+           pval = FALSE,
+           risk.table = TRUE,
+           legend.labs = c("Placebo", "Celecoxib"),
+           title = "DFS Kaplan-Meier curve",
+           fun = "event",
+           ylab = "DFS Event (%)",
+           surv.scale = "percent",
+           break.y.by = 0.1,
+           ylim = c(0, 0.4), 
+           xscale = "m_y",
+           xlim = c(0, 72.0000001),
+           break.x.by = 12,
+           )
+DFS_bwl_plot_2
+
+coxmodel_os_2 <- coxph(Surv(os_time, os_event) ~ arm + strata(nstage_cal) + strata(aspirin), data = sint) 
+
+exp(coef(coxmodel_os_2))
+
+exp(confint(coxmodel_os_2))
+
+coxmodel_dfs_2 <- coxph(Surv(dfs_time, dfs_event) ~ arm + strata(nstage_cal) + strata(aspirin), data = sint)  
+
+exp(coef(coxmodel_dfs_2))
+
+exp(confint(coxmodel_dfs_2))
+```
+
+```{r}
+#grid.arrange(OS_bwl_plot_2, DFS_bwl_plot_2)
+```
+
+
+```{r}
+model_os <- tbl_regression(coxmodel_os_2, exponentiate = TRUE)
+as_gt(model_os) %>% 
+              gt::tab_header("OS Cox proportional hazards regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+
+```{r}
+model_dfs <- tbl_regression(coxmodel_dfs_2, exponentiate = TRUE)
+as_gt(model_dfs) %>% 
+              gt::tab_header("DFS Cox proportional hazards regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+
+```{r eval=FALSE, fig.height=6, fig.width=9, include=FALSE}
+# Source - https://stackoverflow.com/a/71130669
+# Posted by Yomi.blaze93
+# Retrieved 2026-04-21, License - CC BY-SA 4.0
+model_os_grob <- model_os |>
+  as_gt() |>
+  gt::as_gtable()
+
+model_dfs_grob <- model_dfs |>
+  as_gt() |>
+  gt::as_gtable()
+
+
+wrap_plots(OS_bwl_plot_2$plot, model_os_grob) #https://gt.rstudio.com/reference/as_gtable.html
+wrap_plots(DFS_bwl_plot_2$plot, model_dfs_grob)
+```
+
+```{r, fig.height=8, fig.width=8}
+DFS_bwl_plot_2$plot <- DFS_bwl_plot_2$plot + 
+  annotate("text", 
+           x = 1, y = 0.38,
+           label = "HR 0.86 (IC95% 0.73–1.01)\np = 0.068",
+           hjust = 0, size = 3.5, fontface = "italic")
+DFS_bwl_plot_2
+
+OS_bwl_plot_2$plot <- OS_bwl_plot_2$plot + 
+  annotate("text", 
+           x = 1, y = 0.20,
+           label = "HR 0.87 (IC95% 0.71–1.06)\np = 0.2",
+           hjust = 0, size = 3.5, fontface = "italic")
+OS_bwl_plot_2
+
+summary(kmcurve_dfs_2, times = 36)
+
+summary(kmcurve_os_2, times = 60)
+```
+```{r}
+# DFS a 3 anys (36 mesos)
+summary(kmcurve_dfs_2 ,times = 36)
+
+# OS a 5 anys (60 mesos)
+summary(kmcurve_os_2, times = 60)
+```
+
+
+https://www.rdocumentation.org/packages/survminer/versions/0.5.2/topics/ggsurvplot 
+https://cran.r-project.org/web/packages/survminer/refman/survminer.html#ggsurvplot 
+```{r, fig.width=8, fig.height=8}
+kmcurve_os <- survfit(Surv(os_time, os_event) ~ arm_dur, data = sint)
+
+OS_bwl_plot <- ggsurvplot(kmcurve_os,
+           conf.int = TRUE,
+           pval = FALSE, #pval = 0.66
+           risk.table = TRUE,
+           legend.labs = c("Placebo 6 meses", "Celecoxib 6 meses", "Placebo 3 meses", "Celecoxib 3 meses"),
+           title = "OS Kaplan-Meier curve",
+           fun = "event", #"event" plots cumulative events (f(y) = 1-y)
+           ylab = "Died (%)",
+           surv.scale = "percent",
+           break.y.by = 0.1, #para que el eje y tenga marcas cada 10 puntos
+           ylim = c(0, 0.3), 
+           xscale = "m_y",
+           xlim = c(0, 72.0000001),  #para que el eje x vaya de 0 a 6 años (72 meses)
+           break.x.by = 12
+           )
+
+OS_bwl_plot
+
+kmcurve_dfs <- survfit(Surv(dfs_time, dfs_event) ~ arm_dur, data = sint)
+
+DFS_bwl_plot<- ggsurvplot(kmcurve_dfs,
+           conf.int = TRUE,
+           pval = FALSE, #pval = 0.33
+           risk.table = TRUE,
+           legend.labs = c("Placebo 6 meses", "Celecoxib 6 meses", "Placebo 3 meses", "Celecoxib 3 meses"),
+           title = "DFS Kaplan-Meier curve",
+           fun = "event",
+           ylab = "DFS Event (%)",
+           surv.scale = "percent",
+           break.y.by = 0.1,
+           ylim = c(0, 0.5), 
+           xscale = "m_y",
+           xlim = c(0, 72.0000001),
+           break.x.by = 12,
+           )
+DFS_bwl_plot
+
+```
+
+```{r}
+#survdiff(Surv(os_time, os_event) ~ arm_dur, data = sint)
+
+#survdiff(Surv(dfs_time, dfs_event) ~ arm_dur, data = sint)
+
+```
+Both the ggsurvplot and survdiff yield a p-value for the log rank test > 0,05. Therefore, we fail to reject the null that there is no statistically significant difference in survival between Celecoxib and Placebo.
+
+## Cox proportional hazard model 
+
+###Overall survival:
+
+```{r}
+#sint <- sint |>
+  #dplyr::mutate(arm = relevel(factor(arm_dur), ref = "FOLFOX + Placebo~(6 months)")) #me lo ha chivado claude
+
+sint <- sint |>
+  dplyr::mutate(
+    arm = factor(arm, levels = c("Placebo", "Celecoxib")),
+    duration = factor(duration, levels = c("6 months", "3 months"))
+  )
+
+coxmodel_os <- coxph(Surv(os_time, os_event) ~ arm_dur, data = sint)
+
+exp(coef(coxmodel_os))
+
+exp(confint(coxmodel_os))
+```
+
+```{r}
+model1 <- tbl_regression(coxmodel_os, exponentiate = TRUE)
+as_gt(model1) %>% 
+              gt::tab_header("Cox proportional hazards regression model") %>% 
+              gt::tab_options(table.align='left')
+
+```
+The hazard ratio was 1.13 with a 95% confidence interval of 0.95, 1.37. Since the 95% confidence interval crosses where the HR=1, we fail to reject the null hypothesis that there is no significant differences in hazards between subjects in Treatment with Celecoxib and Placebo.
+
+```{r eval=FALSE, fig.height=6, fig.width=9, include=FALSE}
+model1_grob <- model1 |>
+  as_gt() |>
+  gt::as_gtable()
+wrap_plots(OS_bwl_plot$plot, model1_grob) #https://gt.rstudio.com/reference/as_gtable.html
+
+```
+
+```{r, fig.width=12, fig.height=8}
+hr_df <- broom::tidy(coxmodel_os, exponentiate = TRUE, conf.int = TRUE) |>
+  dplyr::mutate(
+    arm = gsub("^arm_dur", "", term),
+    hr_text = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high)
+  ) |>
+  dplyr::select(arm, hr_text)
+
+surv5 <- summary(kmcurve_os , times = 60)
+event5_df <- data.frame(
+  arm = gsub("arm_dur=", "", surv5$strata),
+  event_text = sprintf("%.1f (%.1f-%.1f%%)",
+    (1 - surv5$surv) * 100,
+    (1 - surv5$upper) * 100,
+    (1 - surv5$lower) * 100)
+)
+fu_df <- sint |>
+  dplyr::filter(!is.na(arm_dur)) |>
+  dplyr::group_by(arm_dur) |>
+  dplyr::summarize(
+    fu_text = sprintf("%.1f (%.1f-%.1f)",
+      median(os_time/12, na.rm = TRUE),
+      quantile(os_time/12, 0.25, na.rm = TRUE),
+      quantile(os_time/12, 0.75, na.rm = TRUE)),
+    .groups = "drop"
+  )
+
+ref_level <- levels(sint$arm_dur)[1]
+
+legend_df <- fu_df |>
+  dplyr::left_join(event5_df, by = c("arm_dur" = "arm")) |>
+  dplyr::left_join(hr_df, by = c("arm_dur" = "arm")) |>
+  dplyr::mutate(
+    hr_text = dplyr::if_else(is.na(hr_text), "Reference", hr_text)
+  ) |>
+  dplyr::select(arm_dur, hr_text, event_text, fu_text)
+
+lros <- survival::survdiff(Surv(os_time, os_event) ~ arm_dur, data = sint |> dplyr::filter(!is.na(arm_dur)))
+lr_pvalos <- format.pval(1 - pchisq(lros$chisq, df = length(lros$n) - 1), digits = 2)
+
+legend_tbl <- legend_df |>
+  gt::gt() |>
+  gt::cols_label(
+    arm_dur = "Oral Agent",
+    hr_text = "HR (95% CI)",
+    event_text = "5 Year (1-OS) (95% CI)",
+    fu_text = "Median Observation Time (IQR)"
+  ) |>
+  gt::tab_footnote(
+    footnote = paste("Logrank P-value:", lr_pvalos)
+  ) |>
+  gt::tab_options(
+    table.font.size = gt::px(12),
+    column_labels.font.weight = "bold"
+  )
+
+legend_tbl
+
+# Dos variables del factorial
+sint <- sint |>
+  dplyr::mutate(
+    drug = ifelse(grepl("Celecoxib", arm_dur), "Celecoxib", "Placebo"),
+    duration = ifelse(grepl("3", arm_dur), "3m", "6m")
+  )
+
+cox_int_os <- coxph(Surv(os_time, os_event) ~ drug * duration, data = sint)
+anova(cox_int_os)
+
+```
+
+```{r, fig.width=10, fig.height=8}
+OS_bwl_plot$plot <- OS_bwl_plot$plot + 
+  annotate("label", 
+           x = 0.3, y = 0.27,
+           label = paste0(
+             "Oral Agent                  HR (95% CI)         5-Yr 1-OS (95% CI)     Median Obs (IQR)\n",
+             "FOLFOX+Placebo (6m)         Reference           19.9% (16.3–23.4)      5.3 (3.1–6.0)\n",
+             "FOLFOX+Celecoxib (6m)       0.85 (0.65–1.12)    15.7% (12.5–18.8)      5.4 (3.2–6.0)\n",
+             "FOLFOX+Placebo (3m)         0.86 (0.66–1.13)    17.2% (14.0–20.4)      5.5 (3.7–6.0)\n",
+             "FOLFOX+Celecoxib (3m)       0.77 (0.58–1.02)    15.6% (12.4–18.7)      5.5 (3.8–6.0)\n",
+             "Log-rank P-value: 0.32\n",
+             "Interaction p-value for FOLFOX Duration * Oral Agent: 0.82"
+           ),
+           hjust = 0, size = 3, family = "mono",
+           fill = "white", label.size = 1)
+OS_bwl_plot
+```
+
+
+###Disease free survival:
+
+```{r}
+coxmodel_dfs <- coxph(Surv(dfs_time, dfs_event) ~ arm_dur, data = sint)  
+
+exp(coef(coxmodel_dfs))
+
+exp(confint(coxmodel_dfs))
+```
+```{r}
+modeldfs <- tbl_regression(coxmodel_dfs, exponentiate = TRUE)
+as_gt(modeldfs) %>% 
+              gt::tab_header("Cox proportional hazards regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+The hazard ratio was 1.16 with a 95% confidence interval of 0.97, 1.40. Since the 95% confidence interval crosses where the HR=1, we fail to reject the null hypothesis that there is no significant differences in hazards between subjects in Treatment with Celecoxib and Placebo.
+
+```{r eval=FALSE, fig.height=8, fig.width=14, include=FALSE}
+modeldfs_grob <- modeldfs |>
+  as_gt() |>
+  gt::as_gtable()
+wrap_plots(DFS_bwl_plot$plot, modeldfs_grob)
+```
+
+```{r, fig.width=12, fig.height=8}
+hr_df <- broom::tidy(coxmodel_dfs, exponentiate = TRUE, conf.int = TRUE) |>
+  dplyr::mutate(
+    arm = gsub("^arm_dur", "", term),
+    hr_text = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high)
+  ) |>
+  dplyr::select(arm, hr_text)
+
+surv5 <- summary(kmcurve_dfs , times = 36)
+event5_df <- data.frame(
+  arm = gsub("arm_dur=", "", surv5$strata),
+  event_text = sprintf("%.1f (%.1f-%.1f%%)",
+    (1 - surv5$surv) * 100,
+    (1 - surv5$upper) * 100,
+    (1 - surv5$lower) * 100)
+)
+fu_df <- sint |>
+  dplyr::filter(!is.na(arm_dur)) |>
+  dplyr::group_by(arm_dur) |>
+  dplyr::summarize(
+    fu_text = sprintf("%.1f (%.1f-%.1f)",
+      median(dfs_time/12, na.rm = TRUE),
+      quantile(dfs_time/12, 0.25, na.rm = TRUE),
+      quantile(dfs_time/12, 0.75, na.rm = TRUE)),
+    .groups = "drop"
+  )
+
+ref_level <- levels(sint$arm_dur)[1]
+legend_df <- fu_df |>
+  dplyr::left_join(event5_df, by = c("arm_dur" = "arm")) |>
+  dplyr::left_join(hr_df, by = c("arm_dur" = "arm")) |>
+  dplyr::mutate(
+    hr_text = dplyr::if_else(is.na(hr_text), "Reference", hr_text)
+  ) |>
+  dplyr::select(arm_dur, hr_text, event_text, fu_text)
+
+lr_dfs <- survival::survdiff(Surv(dfs_time, dfs_event) ~ arm_dur, data = sint |> dplyr::filter(!is.na(arm_dur)))
+lr_pval_dfs <- format.pval(1 - pchisq(lr_dfs$chisq, df = length(lr_dfs$n) - 1), digits = 2)
+
+legend_tbl_DFS <- legend_df |>
+  gt::gt() |>
+  gt::cols_label(
+    arm_dur = "Oral Agent",
+    hr_text = "HR (95% CI)",
+    event_text = "3 Year (1-DFS) (95% CI)",
+    fu_text = "Median Observation Time (IQR)"
+  ) |>
+  gt::tab_footnote(
+    footnote = paste("Logrank P-value:", lr_pval_dfs)
+  ) |>
+  gt::tab_options(
+    table.font.size = gt::px(12),
+    column_labels.font.weight = "bold"
+  )
+
+legend_tbl_DFS
+
+cox_int_dfs <- coxph(Surv(dfs_time, dfs_event) ~ drug * duration, data = sint)
+anova(cox_int_dfs)
+```
+
+```{r, fig.width=10, fig.height=8}
+DFS_bwl_plot$plot <- DFS_bwl_plot$plot + 
+  annotate("label", 
+           x = 4, y = 0.44,
+           label = paste0(
+             "Oral Agent                  HR (95% CI)         3-Yr 1-DFS (95% CI)     Median Obs (IQR)\n",
+             "FOLFOX+Placebo (6m)         Reference           21.7% (18.0–25.2)       4.1 (1.5–5.4)\n",
+             "FOLFOX+Celecoxib (6m)       0.91 (0.72–1.15)    19.2% (15.7–22.5)       4.1 (1.7–5.6)\n",
+             "FOLFOX+Placebo (3m)         1.13 (0.91–1.41)    23.7% (20.1–27.2)       4.2 (1.8–5.4)\n",
+             "FOLFOX+Celecoxib (3m)       0.94 (0.75–1.19)    20.3% (16.8–23.7)       4.3 (1.8–5.4)\n",
+             "Log-rank P-value: 0.2\n",
+             "Interaction p-value for FOLFOX Duration * Oral Agent: 0.58"
+           ),
+           hjust = 0, size = 3, family = "mono",
+           fill = "white", label.size = 1)
+DFS_bwl_plot
+```
+
+
+## Hazard ratio
+
+
+```{r}
+ds2 <- read.csv("NCT01150045_synthetic_clean.csv") #vuelvo a subir el dataset porque me da error por el cambio de etiquetas
+
+ds2 <- ds2 |>
+  dplyr::mutate(
+    os_event = dplyr::case_when(
+      os_stat == "1=Event" ~ 1L,
+      os_stat == "0=Censor" ~ 0L
+    ),
+    dfs_event = dplyr::case_when(
+      dfs_stat == "1=Event" ~ 1L,
+      dfs_stat == "0=Censor" ~ 0L
+    ),
+    bmi_cat = cut(bmi, breaks = c(-Inf, 18.5, 25, 30, Inf),
+              labels = c("Underweight", "Normal weight", "Overweight", "Obese"), 
+              right = FALSE),
+    age_cat = cut(age, breaks = c(-Inf, 50, 70, Inf),
+              labels = c("<=50 years", "Between 50 and 70 years", ">70 years")),
+    arm = dplyr::case_when(
+      grepl("Celecoxib", arm) ~ "Celecoxib",
+      grepl("Placebo", arm)   ~ "Placebo"
+    ),
+    arm = factor(arm, levels = c("Placebo", "Celecoxib"))
+  )
+res.cox.os <- coxph(Surv(os_time, os_event) ~ arm + age + sex + bmi + race + ethnicity + ps + aspirin + tstage  + nstage_cal + sidedness, data = ds2)
+res.cox.dfs <- coxph(Surv(dfs_time, dfs_event) ~ arm+ age + sex + bmi + race + ethnicity + ps + aspirin + tstage + nstage_cal + sidedness, data = ds2)
+summary(res.cox.os, conf.int = FALSE)
+```
+https://cran.r-project.org/web/packages/forestploter/vignettes/forestploter-intro.html 
+```{r, fig.height=11.5, fig.width=20}
+ds2 <- read.csv("NCT01150045_synthetic_clean.csv",
+                stringsAsFactors = FALSE,
+                na.strings = c("NA", "", "Unknown")) |>
+  dplyr::filter(race != "All others or not reported" | is.na(race)) |>
+  dplyr::filter(sidedness != "Multiple" | is.na(sidedness)) |>
+  dplyr::mutate(
+    dfs_event = dplyr::case_when(
+      dfs_stat == "1=Event" ~ 1L,
+      dfs_stat == "0=Censor" ~ 0L
+    ),
+    arm = dplyr::case_when(
+      grepl("Celecoxib", arm) ~ "Celecoxib",
+      grepl("Placebo", arm)   ~ "Placebo"
+    ),
+    arm = factor(arm, levels = c("Placebo", "Celecoxib")),
+    age_cat = cut(age, breaks = c(-Inf, 50, 70, Inf),
+                  labels = c("<=50 years", "Between 50 and 70 years", ">70 years")),
+    bmi_cat = cut(bmi, breaks = c(-Inf, 18.5, 25, 30, Inf),
+                  labels = c("Underweight", "Normal weight", "Overweight", "Obese"),
+                  right = FALSE),
+    ethnicity = ifelse(ethnicity == "", NA, ethnicity),
+    tstage    = ifelse(tstage == "", NA, tstage),
+    sidedness = ifelse(sidedness == "", NA, sidedness)
+)
+
+get_hr <- function(data, var, level, time_var = "dfs_time", event_var = "dfs_event") {
+  sub <- data[data[[var]] == level & !is.na(data[[var]]), ] #filtro donde la variable es igual al nivel y no es NA
+  fit <- tryCatch(
+    tidy(coxph(Surv(sub[[time_var]], sub[[event_var]]) ~ arm, data = sub),exponentiate = TRUE, conf.int = TRUE), #cox por subgrupo. tidy extrae ls resultados como tabla
+    error = function(e) NULL
+  )
+  if (is.null(fit)) return(data.frame(est=NA, low=NA, hi=NA, pval=NA, events=NA, total=NA)) #seguridad para que no pare el programa
+  data.frame(
+    est    = fit$estimate[1],
+    low    = fit$conf.low[1],
+    hi     = fit$conf.high[1],
+    pval   = fit$p.value[1],
+    events = sum(sub[[event_var]] == 1, na.rm = TRUE),
+    total  = nrow(sub)
+  )
+}
+
+get_int_p <- function(data, var, time_var = "dfs_time", event_var = "dfs_event") { #funcionn con 4 argumentos: dataset, variable de subgrupo, variable de tiempo y de evento.
+  tryCatch({ #bloque protegido
+    fit <- coxph(as.formula(paste0("Surv(", time_var, ",", event_var, ") ~ arm * ", var)), data = data) #construye la formula dinámicamente. se convierte la formual a texto y luego a formula ya que la variable var cambia en cada iteración del loop.
+    a <- anova(fit); tail(a$`Pr(>|Chi|)`, 1) #extraemos el ultimo p-valor de la tabla anova que corresponde con la interacción
+  }, error = function(e) NA)
+}
+
+subgroups <- list(
+  list(var="age_cat",    label="Age"),
+  list(var="sex",        label="Gender"),
+  list(var="race",       label="Race"),
+  list(var="ethnicity",  label="Ethnicity"),
+  list(var="aspirin",    label="Aspirin use"),
+  list(var="bmi_cat",    label="Body Mass Index"),
+  list(var = "ps",       label= "ECOG"),
+  list(var="tstage",     label="T-Stage"),
+  list(var="nstage_cal", label="N-Stage"),
+  list(var="sidedness",  label="Tumor sidedness")
+)
+
+rows <- list()
+for (sg in subgroups) { #creamos loop. cada sg es un subgrupo
+  lvls <- sort(na.omit(unique(ds2[[sg$var]]))) #extrae los niveles de cada variable. Quitamos Na y lo ordenamos alfabeticamente.
+  int_p <- get_int_p(ds2, sg$var) #llamamos a la funcion de niteraccion pval
+  rows[[length(rows)+1]] <- data.frame(
+    Subgroup = sg$label, `Events/Total` = "", est = NA, low = NA, hi = NA,
+    pval = NA, int_p = ifelse(is.na(int_p), "", sprintf("%.4f", int_p)), 
+    check.names = FALSE
+  ) #Añade la fila de encabezado del subgrupo. para que salva el interac-pval
+  for (lvl in lvls) { #otro loop para recorrer los niveles de cada variable
+    hr <- get_hr(ds2, sg$var, lvl) #llamamos la función para calcular HR
+    rows[[length(rows)+1]] <- data.frame(
+      Subgroup = paste0("   ", lvl),
+      `Events/Total` = paste0(hr$events, "/", hr$total),
+      est = hr$est, low = hr$low, hi = hr$hi,
+      pval = hr$pval, int_p = "",
+      check.names = FALSE
+    ) # Añade la fila de datos de ese nivel. El paste0("   ", lvl) añade 3 espacios de indentación para que visualmente quede debajo del encabezado
+  }
+}
+
+dt <- bind_rows(rows) #cerramos loops
+dt$est <- as.numeric(dt$est)
+dt$low <- as.numeric(dt$low)
+dt$hi  <- as.numeric(dt$hi)
+
+dt$se <- (log(dt$hi) - log(dt$est)) / 1.96
+dt$` ` <- paste(rep(" ", 30), collapse = " ")
+dt$`HR (95% CI)` <- ifelse(is.na(dt$est), "",
+                            sprintf("%.2f (%.2f to %.2f)", dt$est, dt$low, dt$hi))
+dt$`P-value` <- ifelse(is.na(dt$pval), "",
+                        ifelse(dt$pval < 0.001, "<0.001", sprintf("%.4f", dt$pval)))
+dt$`Interaction\nP-value` <- dt$int_p
+
+p <- forest(
+  dt[, c("Subgroup", "Events/Total", " ", "HR (95% CI)", "P-value", "Interaction\nP-value")],
+  est   = dt$est,
+  lower = dt$low,
+  upper = dt$hi,
+  sizes = dt$se,
+  ci_column = 3,
+  ref_line = 1,
+  arrow_lab = c("Favours Celecoxib", "Favours Placebo"),
+  xlim = c(0.1, 5),
+  ticks_at = c(0.1, 0.5, 1, 2, 4),
+  title =  "DFS: Celecoxib vs Placebo by subgroups. Synthetic data"
+)
+plot(p)
+```
+
+```{r, fig.height=11.5, fig.width=20}
+ds2 <- read.csv("NCT01150045_synthetic_clean.csv",
+                stringsAsFactors = FALSE,
+                na.strings = c("NA", "", "Unknown")) |>
+  dplyr::filter(race != "All others or not reported" | is.na(race)) |>
+  dplyr::filter(sidedness != "Multiple" | is.na(sidedness)) |>
+  dplyr::mutate(
+    os_event = dplyr::case_when(
+      os_stat == "1=Event" ~ 1L,
+      os_stat == "0=Censor" ~ 0L
+    ),
+    arm = dplyr::case_when(
+      grepl("Celecoxib", arm) ~ "Celecoxib",
+      grepl("Placebo", arm)   ~ "Placebo"
+    ),
+    arm = factor(arm, levels = c("Placebo", "Celecoxib")),
+    age_cat = cut(age, breaks = c(-Inf, 50, 70, Inf),
+                  labels = c("<=50 years", "Between 50 and 70 years", ">70 years")),
+    bmi_cat = cut(bmi, breaks = c(-Inf, 18.5, 25, 30, Inf),
+                  labels = c("Underweight", "Normal weight", "Overweight", "Obese"),
+                  right = FALSE),
+    ethnicity = ifelse(ethnicity == "", NA, ethnicity),
+    tstage    = ifelse(tstage == "", NA, tstage),
+    sidedness = ifelse(sidedness == "", NA, sidedness)
+)
+
+get_hr_os <- function(data, var, level) {
+  sub <- data[data[[var]] == level & !is.na(data[[var]]), ]
+  fit <- tryCatch(
+    tidy(coxph(Surv(os_time, os_event) ~ arm, data = sub),
+         exponentiate = TRUE, conf.int = TRUE),
+    error = function(e) NULL
+  )
+  if (is.null(fit)) return(data.frame(est=NA, low=NA, hi=NA, pval=NA, events=NA, total=NA))
+  data.frame(
+    est    = fit$estimate[1],
+    low    = fit$conf.low[1],
+    hi     = fit$conf.high[1],
+    pval   = fit$p.value[1],
+    events = sum(sub$os_event == 1, na.rm = TRUE),
+    total  = nrow(sub)
+  )
+}
+
+get_int_p_os <- function(data, var) {
+  tryCatch({
+    fit <- coxph(as.formula(paste0("Surv(os_time, os_event) ~ arm * ", var)), data = data)
+    a <- anova(fit); tail(a$`Pr(>|Chi|)`, 1)
+  }, error = function(e) NA)
+}
+
+subgroups <- list(
+  list(var="age_cat",    label="Age"),
+  list(var="sex",        label="Gender"),
+  list(var="race",       label="Race"),
+  list(var="ethnicity",  label="Ethnicity"),
+  list(var="aspirin",    label="Aspirin use"),
+  list(var="bmi_cat",    label="Body Mass Index"),
+  list(var = "ps",       label= "ECOG"),
+  list(var="tstage",     label="T-Stage"),
+  list(var="nstage_cal", label="N-Stage"),
+  list(var="sidedness",  label="Tumor sidedness")
+)
+
+rows <- list()
+for (sg in subgroups) {
+  lvls <- sort(na.omit(unique(ds2[[sg$var]])))
+  int_p_val <- get_int_p_os(ds2, sg$var)
+  
+  rows[[length(rows)+1]] <- data.frame(
+    Subgroup = sg$label, `Events/Total` = "", est = NA, low = NA, hi = NA,
+    pval = NA, int_p = ifelse(is.na(int_p_val), "", sprintf("%.4f", int_p_val)),
+    check.names = FALSE
+  )
+  
+  for (lvl in lvls) {
+    hr <- get_hr_os(ds2, sg$var, lvl)
+    rows[[length(rows)+1]] <- data.frame(
+      Subgroup = paste0("   ", lvl),
+      `Events/Total` = paste0(hr$events, "/", hr$total),
+      est = hr$est, low = hr$low, hi = hr$hi,
+      pval = hr$pval, int_p = "",
+      check.names = FALSE
+    )
+  }
+}
+
+dt <- bind_rows(rows)
+dt$est <- as.numeric(dt$est)
+dt$low <- as.numeric(dt$low)
+dt$hi  <- as.numeric(dt$hi)
+
+dt$se <- (log(dt$hi) - log(dt$est)) / 1.96
+dt$` ` <- paste(rep(" ", 40), collapse = " ")
+dt$`HR (95% CI)` <- ifelse(is.na(dt$est), "",
+                            sprintf("%.2f (%.2f to %.2f)", dt$est, dt$low, dt$hi))
+dt$`P-value` <- ifelse(is.na(dt$pval), "",
+                        ifelse(dt$pval < 0.001, "<0.001", sprintf("%.4f", dt$pval)))
+dt$`Interaction\nP-value` <- dt$int_p
+
+os <- forest(
+  dt[, c("Subgroup", "Events/Total", " ", "HR (95% CI)", "P-value", "Interaction\nP-value")],
+  est   = dt$est,
+  lower = dt$low,
+  upper = dt$hi,
+  sizes = dt$se,
+  ci_column = 3,
+  ref_line = 1,
+  arrow_lab = c("Favours Celecoxib", "Favours Placebo"),
+  xlim = c(0.1, 5),
+  ticks_at = c(0.1, 0.5, 1, 2, 4),
+  title =  "OS: Celecoxib vs Placebo by subgroups. Synthetic data"
+)
+plot(os)
+```
+
+```{r}
+get_hr <- function(model) {
+  s <- summary(model)$conf.int
+  data.frame(Variables = rownames(s), est = s[,1], lower = s[,3], upper = s[,4])
+}
+
+# Preprocessament
+real <- real %>% mutate(
+  os_event = case_when(os_stat == "1=Event" ~ 1L, os_stat == "0=Censor" ~ 0L),
+  os_event = if_else(os_time > 72, 0L, os_event),
+  os_time  = if_else(os_time > 72, 72, os_time)
+)
+sint <- sint %>% mutate(
+  os_event = case_when(os_stat == "1=Event" ~ 1L, os_stat == "0=Censor" ~ 0L),
+  os_event = if_else(os_time > 72, 0L, os_event),
+  os_time  = if_else(os_time > 72, 72, os_time)
+)
+
+fml_os <- Surv(os_time, os_event) ~ arm + age + sex + bmi + race + ps + aspirin + tstage + nstage_cal + sidedness
+
+cox_real_os <- coxph(fml_os, data = real)
+cox_sint_os <- coxph(fml_os, data = sint)
+
+hr_r <- get_hr(cox_real_os)
+hr_s <- get_hr(cox_sint_os)
+
+# Unir i calcular CI Overlap (fórmula Azizi et al.)
+dt <- merge(hr_r, hr_s, by = "Variables", suffixes = c("_r", "_s"))
+
+dt$ci_overlap <- pmax(0,
+  pmin(dt$upper_r, dt$upper_s) - pmax(dt$lower_r, dt$lower_s)
+) / (dt$upper_r - dt$lower_r) * 100
+
+dt$ci_overlap <- round(dt$ci_overlap)
+
+#Direcció
+dt$dir_real <- ifelse(dt$est_r > 1, "+", "−")
+dt$dir_sint <- ifelse(dt$est_s > 1, "+", "−")
+dt$dir_ok   <- ifelse(dt$dir_real == dt$dir_sint, "Sí", "No")
+
+#Magnitud del efecto
+dt$hr_diff_pct <- round(abs(dt$est_r - dt$est_s) / dt$est_r * 100, 1)
+
+#Significancia estadística
+
+pv_r <- data.frame(Variables = rownames(summary(cox_real_os)$coefficients),
+                    pval_r = summary(cox_real_os)$coefficients[, 5])
+pv_s <- data.frame(Variables = rownames(summary(cox_sint_os)$coefficients),
+                    pval_s = summary(cox_sint_os)$coefficients[, 5])
+dt <- merge(dt, pv_r, by = "Variables")
+dt <- merge(dt, pv_s, by = "Variables")
+dt$sig_concord <- ifelse((dt$pval_r < 0.05) == (dt$pval_s < 0.05), "Sí", "No")
+
+dt$` ` <- paste(rep(" ", 25), collapse = " ")
+dt$`CI Overlap` <- paste0(dt$ci_overlap, "%")
+
+dt$Variables <- dplyr::recode(dt$Variables,
+  "age"                        = "Age",
+  "aspirinYes"                 = "Aspirin: Yes vs No",
+  "bmi"                        = "BMI",
+  "nstage_calN2"               = "Nodal Stage: N2 vs N1",
+  "ps1 to 2"                   = "ECOG: 1-2 vs 0",
+  "raceAsian"                  = "Race: Asian vs White",
+  "raceBlack or African American" = "Race: Black vs White",
+  "sexMale"                    = "Sex: Male vs Female",
+  "sidednessMultiple"          = "Sidedness: Multiple vs Left",
+  "sidednessRight-sided"       = "Sidedness: Right vs Left",
+  "tstageT3"                   = "T Stage: T3 vs T1-2",
+  "tstageT4"                   = "T Stage: T4 vs T1-2"
+)
+
+tm <- forest_theme(base_size = 10, ci_pch = c(16, 18), ci_col = c("black", "grey50"),
+                   ci_lty = 1, ci_lwd = 1.5, legend_name = "Source",
+                   legend_value = c("Real", "Synthetic"),
+                   refline_gp = gpar(col = "grey30", lty = 2))
+
+p_os <- forest(data = dt[, c("Variables", " ", "CI Overlap")],
+               est = list(dt$est_r, dt$est_s), lower = list(dt$lower_r, dt$lower_s),
+               upper = list(dt$upper_r, dt$upper_s), ci_column = 2,
+               ref_line = 1, x_trans = "log", xlab = "HR", nudge_y = 0.2,
+               title = "HR: Analysis for Overall Survival", theme = tm)
+plot(p_os)
+```
+```{r}
+tabla_os<- dt %>%
+  select(Variables, dir_real, dir_sint, dir_ok,
+         est_r, est_s, hr_diff_pct, ci_overlap,
+         pval_r, pval_s, sig_concord) %>%
+  mutate(est_r = round(est_r, 2), est_s = round(est_s, 2),
+         pval_r = round(pval_r, 3), pval_s = round(pval_s, 3)) %>%
+  gt() %>%
+  cols_label(
+    dir_real = "Dir. Real", dir_sint = "Dir. Sint.", dir_ok = "Concordancia",
+    est_r = "HR Real", est_s = "HR Sint.", hr_diff_pct = "Δ HR (%)",
+    ci_overlap = "CI Overlap (%)", pval_r = "p Real", pval_s = "p Sint.",
+    sig_concord = "Sig. Concordancia"
+  ) %>%
+  tab_header(title = md("**Tabla X.** Concordancia multivariada: OS"))
+tabla_os
+```
+
+
+```{r}
+real <- real %>% mutate(
+  dfs_event = case_when(dfs_stat == "1=Event" ~ 1L, dfs_stat == "0=Censor" ~ 0L),
+  dfs_event = if_else(dfs_time > 72, 0L, dfs_event),
+  dfs_time  = if_else(dfs_time > 72, 72, dfs_time)
+)
+sint <- sint %>% mutate(
+  dfs_event = case_when(dfs_stat == "1=Event" ~ 1L, dfs_stat == "0=Censor" ~ 0L),
+  dfs_event = if_else(dfs_time > 72, 0L, dfs_event),
+  dfs_time  = if_else(dfs_time > 72, 72, dfs_time)
+)
+
+fml_dfs <- Surv(dfs_time, dfs_event) ~ arm + age + sex + bmi + race + ps + aspirin + tstage + nstage_cal + sidedness
+
+cox_real_dfs <- coxph(fml_dfs, data = real)
+cox_sint_dfs <- coxph(fml_dfs, data = sint)
+
+hr_r <- get_hr(cox_real_dfs)
+hr_s <- get_hr(cox_sint_dfs)
+
+dtdfs <- merge(hr_r, hr_s, by = "Variables", suffixes = c("_r", "_s"))
+dtdfs$ci_overlap <- round(pmax(0, pmin(dtdfs$upper_r, dtdfs$upper_s) - pmax(dtdfs$lower_r, dtdfs$lower_s)) / (dtdfs$upper_r - dtdfs$lower_r) * 100)
+dtdfs$dir_real <- ifelse(dtdfs$est_r > 1, "+", "−")
+dtdfs$dir_sint <- ifelse(dtdfs$est_s > 1, "+", "−")
+dtdfs$dir_ok   <- ifelse(dtdfs$dir_real == dtdfs$dir_sint, "Sí", "No")
+dtdfs$hr_diff_pct <- round(abs(dtdfs$est_r - dtdfs$est_s) / dtdfs$est_r * 100, 1)
+
+pv_r <- data.frame(Variables = rownames(summary(cox_real_dfs)$coefficients),
+                    pval_r = summary(cox_real_dfs)$coefficients[, 5])
+pv_s <- data.frame(Variables = rownames(summary(cox_sint_dfs)$coefficients),
+                    pval_s = summary(cox_sint_dfs)$coefficients[, 5])
+dtdfs <- merge(dtdfs, pv_r, by = "Variables")
+dtdfs <- merge(dtdfs, pv_s, by = "Variables")
+dtdfs$sig_concord <- ifelse((dtdfs$pval_r < 0.05) == (dtdfs$pval_s < 0.05), "Sí", "No")
+
+dtdfs$Variables <- dplyr::recode(dtdfs$Variables,
+  "age"                           = "Age",
+  "aspirinYes"                    = "Aspirin: Yes vs No",
+  "bmi"                           = "BMI",
+  "nstage_calN2"                  = "Nodal Stage: N2 vs N1",
+  "ps1 to 2"                      = "ECOG: 1-2 vs 0",
+  "raceAsian"                     = "Race: Asian vs White",
+  "raceBlack or African American" = "Race: Black vs White",
+  "sexMale"                       = "Sex: Male vs Female",
+  "sidednessMultiple"             = "Sidedness: Multiple vs Left",
+  "sidednessRight-sided"          = "Sidedness: Right vs Left",
+  "tstageT3"                      = "T Stage: T3 vs T1-2",
+  "tstageT4"                      = "T Stage: T4 vs T1-2"
+)
+
+dtdfs$` ` <- paste(rep(" ", 25), collapse = " ")
+dtdfs$`CI Overlap` <- paste0(dtdfs$ci_overlap, "%")
+
+p_dfs <- forest(data = dtdfs[, c("Variables", " ", "CI Overlap")],
+                est = list(dtdfs$est_r, dtdfs$est_s), lower = list(dtdfs$lower_r, dtdfs$lower_s),
+                upper = list(dtdfs$upper_r, dtdfs$upper_s), ci_column = 2,
+                ref_line = 1, x_trans = "log", xlab = "HR", nudge_y = 0.2,
+                title = "HR: Analysis for Disease Free Survival", theme = tm)
+plot(p_dfs)
+
+tabla_dfs <- dtdfs %>%
+  select(Variables, dir_real, dir_sint, dir_ok,
+         est_r, est_s, hr_diff_pct, ci_overlap,
+         pval_r, pval_s, sig_concord) %>%
+  mutate(est_r = round(est_r, 2), est_s = round(est_s, 2),
+         pval_r = round(pval_r, 3), pval_s = round(pval_s, 3)) %>%
+  gt() %>%
+  cols_label(
+    dir_real = "Dir. Real", dir_sint = "Dir. Sint.", dir_ok = "Concordancia",
+    est_r = "HR Real", est_s = "HR Sint.", hr_diff_pct = "Δ HR (%)",
+    ci_overlap = "CI Overlap (%)", pval_r = "p Real", pval_s = "p Sint.",
+    sig_concord = "Sig. Concordancia"
+  ) %>%
+  tab_header(title = md("**Tabla X.** Concordancia multivariada: DFS"))
+tabla_dfs
+```
+```{r}
+#tabla_os |> gtsave("tabla_os.docx")
+#tabla_dfs |> gtsave("tabla_dfs.docx")
+```
+
+# 4. Análisis de respuesta tumoral (tratamiento y seguimiento)
+
+```{r}
+table(sint$derived_off_tx_rsn)
+rx_adherence <- sint |>
+  dplyr::mutate(
+    reason = dplyr::case_when(
+      derived_off_tx_rsn == "Disease Progression during Treatment" ~ "Disease recurrence",
+      derived_off_tx_rsn == "Adverse Events/Side Effects" ~ "Adverse events",
+      derived_off_tx_rsn == "Treatment completed per protocol criteria" ~ "Completed treatment",
+      TRUE ~ "Other"
+    ),
+    reason = factor(reason, levels = c("Disease recurrence", "Adverse events", 
+                                        "Other", "Completed treatment"))
+  )
+rx_adhernece <- rx_adherence |>
+  dplyr::filter(!is.na(backbone)) |>
+  dplyr::group_by(backbone) |>
+  dplyr::summarise( #l summarise calcula un solo número (70.4) para todos, y el ggplot no tiene geometría.
+    porcentaje <- round(sum(sint$celecoxib_adherence == "Yes", na.rm = TRUE)/ length(na.omit(sint$celecoxib_adherence)) * 100, 1)
+  )
+#ggplot(rx_adherence, aes(x=cele_years3, y = porcentaje, fill= reason)) +
+  #labs(x = "Celecoxib or placebo treatment, y", y = "Patients, %") +
+  #xlim(0, 3) +
+  #ylim(0, 100)+
+  #scale_fill_manual(
+    #values = c("Disease recurrence" = "midnightblue",
+               #"Adverse events" = "sienna1",
+               #"Other" = "skyblue3",
+               #"Completed treatment" = "seashell4"))
+    
+```
+https://www.geeksforgeeks.org/r-language/plotting-cumulative-counts-in-ggplot2-in-r/
+https://www.geeksforgeeks.org/r-language/plotting-cumulative-counts-in-ggplot2-in-r/
+```{r eval=FALSE, include=FALSE}
+rx_adherence <- sint |>
+  dplyr::filter(!is.na(backbone), !is.na(cele_years3)) |>
+  dplyr::mutate(
+    reason = dplyr::case_when(
+      derived_off_tx_rsn == "Disease Progression during Treatment" ~ "Disease recurrence",
+      derived_off_tx_rsn == "Adverse Events/Side Effects" ~ "Adverse events",
+      derived_off_tx_rsn == "Treatment completed per protocol criteria" ~ "Completed treatment",
+      TRUE ~ "Other"
+    ),
+    reason = factor(reason, levels = c("Completed treatment", "Other", 
+                                        "Adverse events", "Disease recurrence"))
+  )
+
+rx_cumul <- rx_adherence |>
+  dplyr::group_by(backbone, reason) |>
+  dplyr::arrange(cele_years3) |>
+  dplyr::mutate(cumulative_count = dplyr::row_number()) |>
+  dplyr::ungroup()
+
+ggplot(rx_cumul, aes(x = cele_years3, y = cumulative_count, color = reason, group = reason, fill = reason)) + #no va fill
+  geom_line(size = 1) +
+  facet_wrap(~ backbone) +
+  scale_color_manual(
+    values = c("Disease recurrence" = "midnightblue",
+               "Adverse events" = "sienna1",
+               "Other" = "skyblue3",
+               "Completed treatment" = "seashell4"),
+    name = "Reasons for stopping treatment"
+  ) +
+  labs(x = "Celecoxib or placebo treatment, y",
+       y = "Cumulative Count") +
+  xlim(0, 3) +
+  theme(legend.position = "top")
+```
+
+```{r}
+# Source - https://stackoverflow.com/a/74323512
+# Posted by trangdata
+# Retrieved 2026-05-01, License - CC BY-SA 4.0
+rx_adherence <- sint |>
+  dplyr::filter(!is.na(backbone), !is.na(cele_years3), !is.na(off_trt_grp)) |>
+  dplyr::mutate(
+    cele_years3 = pmin(cele_years3, 3),
+    reason = factor(off_trt_grp, 
+                    levels = c("Completed Treatment", "Other", 
+                               "Adverse Events", "Recurrence"),
+                    labels = c("Completed treatment", "Other", 
+                               "Adverse events", "Disease recurrence"))
+  )
+n_patients <- rx_adherence |>
+  dplyr::count(backbone, name = "n_total")
+rx_cumul <- rx_adherence |>
+  dplyr::count(backbone, reason, cele_years3, name = "events") |>
+  tidyr::complete(backbone, reason, cele_years3, fill = list(events = 0)) |>
+  dplyr::group_by(backbone, reason) |>
+  dplyr::arrange(cele_years3) |>
+  dplyr::mutate(cum_events = cumsum(events)) |>
+  dplyr::ungroup() |>
+  dplyr::left_join(n_patients, by = "backbone") |>
+  dplyr::mutate(aggpct = cum_events / n_total * 100)
+
+ggplot(rx_cumul, aes(x = cele_years3, y = aggpct, fill = reason)) +
+  geom_col(width = 0.095, position = "stack") +
+  facet_wrap(~ backbone) +
+  scale_fill_manual(
+    values = c("Disease recurrence" = "midnightblue",
+               "Adverse events" = "sienna1",
+               "Other" = "skyblue3",
+               "Completed treatment" = "seashell4"),
+    name = "Reasons for stopping treatment"
+  ) +
+  labs(x = "Celecoxib or placebo treatment, y", y = "Patients %") +
+  scale_x_continuous(breaks = seq(0, 3, by = 0.5)) +
+  ylim(0,100)+
+  theme_classic() +
+  theme(legend.position = "top")
+```
+
+```{r eval=FALSE, include=FALSE}
+years <- seq(0, 3, by = 0.01)
+create_accumulative_df <- function(data) {
+  sint <- sint %>% filter(!is.na(cele_years3))
+  total_n <- nrow(sint)
+  data <- sint %>% filter(!is.na(off_trt_grp), nzchar(off_trt_grp))
+  
+  df <- data.frame(years = years)
+  grupos <- unique(data$off_trt_grp)
+  
+  for (grp in grupos) {
+    grp_times <- data$cele_years3[data$off_trt_grp == grp]
+    df[[grp]] <- sapply(years, function(t) sum(pmin(grp_times, 3) <= t) / total_n * 100)
+  }
+  
+  return(df)
+}
+
+data_celecoxib <- sint |>
+  dplyr::filter(backbone == "Celecoxib")
+data_placebo <- sint |>
+  dplyr::filter(backbone == "Placebo")
+
+accumulative_df_celecoxib <- create_accumulative_df(data_celecoxib)
+
+accumulative_df_placebo <- create_accumulative_df(data_placebo)
+#La función de arriba se usa para (una para celecoxib y otra para placebo):
+  
+
+events_celecoxib <- unique(round(data_celecoxib$cele_years3[!is.na(data_celecoxib$cele_years3) & !is.na(data_celecoxib$off_trt_grp) & data_celecoxib$cele_years3 >= 1.5 & data_celecoxib$cele_years3 <= 2.9] / 0.01) * 0.01)
+
+events_placebo <- unique(round(data_placebo$cele_years3[!is.na(data_placebo$cele_years3) & !is.na(data_placebo$off_trt_grp) & data_placebo$cele_years3 >= 1.5 & data_placebo$cele_years3 <= 2.9] / 0.01) * 0.01)
+
+label_map <- c("Recurrence" = "Disease recurrence",
+               "Adverse Events"= "Adverse events",
+               "Others" = "Other",
+               "Completed Treatment" = "Completed treatment")
+
+n_celecoxib <- sum(!is.na(data_celecoxib$cele_years3))
+
+colors <- c("Disease recurrence" = "#1F3B4D", # navy oscuro
+            "Adverse events" = "#E08214", # naranja
+            "Other" = "#8FA1AE", # gris-azulado
+            "Completed treatment" = "#A89968") # beige/khaki
+
+n_placebo <- sum(!is.na(data_placebo$cele_years3))
+
+create_plot <- function(accumulative_data, panel_label, treatment_name, n,
+                        colors, label_map, event_times, show_legend = TRUE) {
+  df_long <- pivot_longer(accumulative_data, -years,
+                          names_to = "variable", values_to = "value")
+  
+  # Renombrar a etiquetas finales
+  df_long$variable <- label_map[df_long$variable]
+  
+  # Orden de apilado: el factor se invierte porque geom_area apila al revés.
+  # Resultado visual (de abajo hacia arriba): Disease recurrence, Adverse events,
+  # Other, Completed treatment.
+  df_long$variable <- factor(df_long$variable,
+                             levels = c("Completed treatment", "Other",
+                                        "Adverse events", "Disease recurrence"))
+  
+  ggplot(df_long, aes(x = years, y = value, fill = variable)) +
+    geom_area(position = 'stack') +
+    geom_vline(xintercept = event_times, color = "white", linewidth = 0.15) +
+    scale_fill_manual(values = colors,
+                      name = "Reasons for stopping treatment",
+                      guide = guide_legend(reverse = TRUE)) +
+    scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 20)) +
+    scale_x_continuous(limits = c(0, 3), breaks = seq(0, 3, by = 0.5)) +
+    labs(title = bquote(bold(.(panel_label)) ~ .(treatment_name) ~ "(n=" * .(n) * ")"),
+         x = paste0(treatment_name, " or placebo treatment, y"),
+         y = "Patients, %") +
+    theme_minimal(base_size = 11) +
+    theme(plot.title= element_text(size = 12, margin = margin(b = 6)),
+          legend.position = if (show_legend) c(0.02, 0.98) else "none",
+          legend.justification = c(0, 1),
+          legend.background = element_rect(fill = "white", color = "gray60", linewidth = 0.3),
+          legend.title = element_text(size = 9, face = "bold"),
+          legend.text = element_text(size = 8),
+          legend.key.size = unit(0.4, "cm"),
+          legend.margin = margin(4, 6, 4, 6))
+}
+
+# Panel A con leyenda, panel B sin ella
+plot_celecoxib <- create_plot(accumulative_df_celecoxib,
+                              "A", "Celecoxib", n_celecoxib,
+                              colors, label_map, events_celecoxib,
+                              show_legend = TRUE)
+
+plot_placebo<- create_plot(accumulative_df_placebo,
+                              "A", "Placebo", n_placebo,
+                              colors, label_map, events_placebo,
+                              show_legend = TRUE)
+plot_celecoxib
+
+plot_placebo
+```
+
+
+# 5. Análisis Bland-Altman
+
+```{r}
+# Estilo basado en Cristina Gil (RPubs): https://rpubs.com/Cristina_Gil/B-A_analysis
+
+#OS
+metodo_A<- log(dt$est_r)
+metodo_B<-log(dt$est_s)
+
+diferencia <- metodo_A - metodo_B
+media <- (metodo_A + metodo_B) / 2
+porcentaje <- ((diferencia / media) * 100)
+datos <- data.frame(metodo_A, metodo_B, diferencia, media, porcentaje)
+datos$variable <- dt$Variables
+summary(datos) 
+  
+BA_plot <- ggplot(data = datos, aes(x = media, y = diferencia)) +
+             geom_point(pch = 1, size = 1.5, col = "black") +
+             labs(title = "Bland-Altman plot OS", x = "media Real y Sintético", 
+                  y = "método real - método sintético") +
+             ylim(mean(datos$diferencia) - 4 * sd(datos$diferencia), 
+                  mean(datos$diferencia) + 4 * sd(diferencia)) +
+             # Línea de bias
+             geom_hline(yintercept = mean(datos$diferencia), lwd = 1) +
+             # Línea en y=0
+             geom_hline(yintercept = 0, lty = 3, col = "grey30") +
+             # Limits of Agreement
+             geom_hline(yintercept = mean(datos$diferencia) + 
+                        1.96 * sd(datos$diferencia), 
+                        lty = 2, col = "firebrick") +
+             geom_hline(yintercept = mean(datos$diferencia) - 
+                        1.96 * sd(datos$diferencia), 
+                        lty = 2, col = "firebrick") +
+             theme(panel.grid.major = element_blank(), 
+                   panel.grid.minor = element_blank()) +
+             geom_text(label = "Bias", x = 991, y = -18, size = 3, 
+                       colour = "black") +
+             geom_text(label = "+1.96SD", x = 960, y = 50, size = 3, 
+                       colour = "firebrick") +
+             geom_text(label = "-1.96SD", x = 960, y = -103, size = 3, 
+                       colour = "firebrick") +
+             theme_bw() + theme(plot.title = element_text(hjust = 0.5))
+
+BA_plot
+
+BA_plot +
+  geom_smooth(method = "lm", se = TRUE, fill = "lightgrey", lwd = 0.1, lty = 5) +
+  geom_text(aes(label = variable), hjust = -0.2, vjust = -0.5, size = 2.5)
+
+
+#DFS
+metodo_Adfs<- log(dtdfs$est_r)
+metodo_Bdfs<-log(dtdfs$est_s)
+
+diferenciadfs <- metodo_Adfs - metodo_Bdfs
+mediadfs <- (metodo_Adfs + metodo_Bdfs) / 2
+porcentajedfs <- ((diferenciadfs / mediadfs) * 100)
+datosdfs <- data.frame(metodo_A, metodo_B, diferenciadfs, mediadfs, porcentajedfs)
+datosdfs$variabledfs <- dtdfs$Variables
+summary(datosdfs) 
+  
+BA_plotdfs <- ggplot(data = datosdfs, aes(x = mediadfs, y = diferenciadfs)) +
+             geom_point(pch = 1, size = 1.5, col = "black") +
+             labs(title = "Bland-Altman plot DFS", x = "media Real y Sintético", 
+                  y = "método real - método sintético") +
+             ylim(mean(datosdfs$diferenciadfs) - 4 * sd(datosdfs$diferenciadfs), 
+                  mean(datosdfs$diferenciadfs) + 4 * sd(diferenciadfs)) +
+             # Línea de bias
+             geom_hline(yintercept = mean(datosdfs$diferenciadfs), lwd = 1) +
+             # Línea en y=0
+             geom_hline(yintercept = 0, lty = 3, col = "grey30") +
+             # Limits of Agreement
+             geom_hline(yintercept = mean(datosdfs$diferenciadfs) + 
+                        1.96 * sd(datosdfs$diferenciadfs), 
+                        lty = 2, col = "firebrick") +
+             geom_hline(yintercept = mean(datosdfs$diferenciadfs) - 
+                        1.96 * sd(datosdfs$diferenciadfs), 
+                        lty = 2, col = "firebrick") +
+             theme(panel.grid.major = element_blank(), 
+                   panel.grid.minor = element_blank()) +
+             geom_text(label = "Bias", x = 991, y = -18, size = 3, 
+                       colour = "black") +
+             geom_text(label = "+1.96SD", x = 960, y = 50, size = 3, 
+                       colour = "firebrick") +
+             geom_text(label = "-1.96SD", x = 960, y = -103, size = 3, 
+                       colour = "firebrick") +
+             theme_bw() + theme(plot.title = element_text(hjust = 0.5))
+
+BA_plotdfs
+
+BA_plotdfs +
+  geom_smooth(method = "lm", se = TRUE, fill = "lightgrey", lwd = 0.1, lty = 5) +
+  geom_text(aes(label = variabledfs), hjust = -0.2, vjust = -0.5, size = 2.5)
+```
+
+
+
+

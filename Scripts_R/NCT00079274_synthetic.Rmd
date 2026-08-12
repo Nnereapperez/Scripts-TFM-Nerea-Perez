@@ -1,0 +1,1241 @@
+---
+title: "NCT00079274"
+author: "Claudia Pascual Tomàs"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(patchwork)
+library(philentropy)
+library(rlang)
+library(gt)
+library(gtsummary)
+library(survival) 
+library(survminer)
+library(forestploter)
+library(grid)
+```
+
+
+```{r}
+real <- read.csv("NCT00079274_unido.csv", stringsAsFactors = FALSE)
+sint <- read.csv("NCT00079274_synthetic_clean.csv", stringsAsFactors = FALSE)
+
+View(real)
+View(sint)
+```
+
+
+# 1. Análisis descriptivo de la población
+
+•	Distribución de la categoría de edad, utilizando la variable age category.
+```{r}
+real$dataset <- "Real"
+sint$dataset <- "Sintético"
+
+cols <- c("agecat", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, agecat) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+ageplot <- ggplot(ds_pct, aes(x = agecat, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Age", y = "%", title = "Age", fill = NULL) +
+  theme_minimal()
+ageplot
+```
+
+•	Distribución de sexo, utilizando la variable sex.
+```{r}
+cols <- c("sex", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, sex) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+sexplot <- ggplot(ds_pct, aes(x = sex, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Sex", y = "%", title = "Sex", fill = NULL) +
+  theme_minimal()
+sexplot
+```
+
+•	Distribución de raza, utilizando la variable race category.
+```{r}
+cols <- c("racecat", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, racecat) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+raceplot <- ggplot(ds_pct, aes(x = racecat, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Race", y = "%", title = "Race", fill = NULL) +
+  theme_minimal()
+raceplot
+```
+
+•	Distribución del estado funcional ECOG, utilizando la variable ECOG performance status.
+
+```{r}
+cols <- c("ps", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, ps) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+ecogplot <- ggplot(ds_pct, aes(x = ps, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "ECOG", y = "%", title = "ECOG", fill = NULL) +
+  theme_minimal()
+ecogplot
+```
+
+
+El estado funcional ECOG es una clasificación utilizada en oncología para medir el nivel de actividad del paciente y el impacto de la enfermedad en su vida diaria.
+
+0: totalmente activo
+1: actividad normal con limitaciones leves
+2: capaz de cuidarse a sí mismo, pero incapaz de trabajar
+3: capacidad limitada de autocuidado
+4: completamente dependiente
+5: fallecido
+
+•	Distribución del estado del biomarcador KRAS, utilizando la variable KRAS biomarker status.
+
+```{r}
+cols <- c("wild", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+ds$wild <- factor(ds$wild)
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, wild) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+krasplot <- ggplot(ds_pct, aes(x = wild, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "KRAS", y = "%", title = "KRAS", fill = NULL) +
+  theme_minimal()
+krasplot
+```
+
+
+El estado mutacional del gen KRAS es un biomarcador relevante en cáncer colorrectal que puede influir en la respuesta a determinadas terapias.
+•	Distribución del índice de masa corporal, utilizando la variable body mass index.
+
+```{r}
+cols <- c("bmi2", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+ds$bmi2 <- as.numeric(ds$bmi2)
+ds <- ds[ds$bmi2 > 0, ]  # excloure -1
+
+bmiplot <- ggplot(ds, aes(x = bmi2, fill = dataset)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 position = "identity", alpha = 0.5, bins = 30) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "BMI", y = "Densitat", title = "BMI", fill = NULL) +
+  theme_minimal()
+bmiplot
+```
+
+
+•	Distribución de obstrucción intestinal, utilizando la variable bowel obstruction (obstruccion intestinal )
+
+```{r}
+cols <- c("bwl_obs", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+ds$bwl_obs <- factor(ds$bwl_obs)
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, bwl_obs) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+obsplot <- ggplot(ds_pct, aes(x = bwl_obs, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Bowel Obstruction", y = "%", title = "Bowel Obstruction", fill = NULL) +
+  theme_minimal() +
+  scale_x_discrete(labels = c("1" = "Yes", "2" = "No"))
+                    
+obsplot
+```
+
+
+•	Distribución de perforación intestinal, utilizando la variable bowel perforation.
+```{r}
+cols <- c("bwl_perf", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+ds$bwl_perf <- factor(ds$bwl_perf)
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, bwl_perf) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+perfplot <- ggplot(ds_pct, aes(x = bwl_perf, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "Bowel Perforation", y = "%", title = "Bowel Perforation", fill = NULL) +
+  theme_minimal() +
+  scale_x_discrete(labels = c("1" = "Yes", "2" = "No"))
+
+perfplot
+```
+
+•	Distribución del número de ganglios positivos, utilizando la variable number of positive lymph nodes.
+
+```{r}
+cols <- c("nodes", "arm", "dataset")
+ds <- rbind(real[, cols], sint[, cols])
+ds$nodes <- factor(ds$nodes)
+# càlcul percentatges
+ds_pct <- ds %>%
+  count(dataset, nodes) %>%
+  group_by(dataset) %>%
+  mutate(pct = n / sum(n) * 100)
+
+nodosplot <- ggplot(ds_pct, aes(x = nodes, y = pct, fill = dataset)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_text(aes(label = paste0(round(pct, 1), "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Real" = "darkorchid1", "Sintético" = "hotpink")) +
+  labs(x = "LNs", y = "%", title = "LNs", fill = NULL) +
+  theme_minimal() +
+  scale_x_discrete(labels = c("1" = "1-3", "2" = ">=4"))
+
+nodosplot
+```
+
+```{r, fig.height=10, fig.width=10}
+combined <- (ageplot + sexplot + raceplot) / (ecogplot + krasplot + bmiplot) / (obsplot + perfplot + nodosplot) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Distribuciones basales") 
+combined
+
+
+grid.arrange(ageplot, sexplot, raceplot, ecogplot, krasplot, bmiplot, obsplot, perfplot, nodosplot, ncol = 3, nrow = 3, top = "Distribuciones basales")
+```
+
+```{r}
+ggsave("distribucions_basals_NCT00079274.png", combined, 
+       width = 14, height = 12, dpi = 300)
+```
+
+
+Divergència KL
+
+
+```{r}
+# Analisi univariat: distribucions reals vs sintetiques + I1 (KL normalitzada)
+eps <- 1e-5
+
+#kl categòrques
+kl_cat <- function(r, s) {
+  r <- r[!is.na(r)]
+  s <- s[!is.na(s)]
+  niv <- sort(unique(c(r, s)))
+  P <- as.numeric(table(factor(r, niv)) / length(r))
+  Q <- as.numeric(table(factor(s, niv)) / length(s))
+  KL(rbind(P, Q), unit = "log", epsilon = eps) / H(P, unit = "log") * 100
+}
+# kl continues
+kl_cont <- function(r, s) {
+  r <- r[!is.na(r) & is.finite(r)]
+  s <- s[!is.na(s) & is.finite(s)]
+  breaks <- seq(min(c(r,s)), max(c(r,s)), length.out = 21)
+  P <- as.numeric(table(cut(r, breaks, include.lowest = TRUE))) / length(r)
+  Q <- as.numeric(table(cut(s, breaks, include.lowest = TRUE))) / length(s)
+  KL(rbind(P, Q), unit = "log", epsilon = eps) / H(P, unit = "log") * 100
+}
+
+tabla_kl<- data.frame(
+  Variable = c("Age","Sex","Race","ECOG","KRAS","BMI",
+               "Bowel Obstruction","Bowel Perforation",
+               "T Stage","Histology","Positive LNs",
+               "Adjuvant Chemotherapy",
+               "Disease free survival","Overall survival"),
+  I1 = round(c(
+    kl_cat(real$agecat, sint$agecat),
+    kl_cat(real$sex, sint$sex),
+    kl_cat(real$racecat, sint$racecat),
+    kl_cat(real$ps, sint$ps),
+    kl_cat(real$wild, sint$wild),
+    kl_cont(real$bmi2[real$bmi2>0], sint$bmi2[sint$bmi2>0]),
+    kl_cat(real$bwl_obs, sint$bwl_obs),
+    kl_cat(real$bwl_perf, sint$bwl_perf),
+    kl_cat(real$stage_g, sint$stage_g),
+    kl_cat(real$histo_g, sint$histo_g),
+    kl_cat(real$nodes, sint$nodes),
+    kl_cat(real$arm, sint$arm),
+    kl_cont(real$dfstime5, sint$dfstime5),
+    kl_cont(real$pgtime5, sint$pgtime5)
+  ), 3)
+) %>%
+  mutate(I1 = paste0(I1, "%")) %>%
+  gt() %>%
+  cols_label(Variable = "Variable", I1 = md("*I*<sub>1</sub>")) %>%
+  tab_header(title = md("**Tabla X.** Comparación de distribuciones univariadas.")) 
+tabla_kl
+```
+```{r}
+#gtsave(tabla_kl, "tabla_kl_NCT00079274.docx")
+```
+
+
+# 2. Comparación de características basales entre brazos
+
+```{r}
+sint <- sint |>
+  dplyr::mutate(
+    arm = dplyr::case_when(
+      arm == "A" ~ "FOLFOX",
+      arm == "D" ~ "FOLFOX + Cetuximab"
+    ),
+    racecat = dplyr::recode(
+      racecat,
+      "w" = "White",
+      "b" = "Black or African American",
+      "oth" = "Other"
+    ),
+    racecat = factor(
+      racecat,
+      levels = c(
+        "White",
+        "Black or African American",
+        "Other"
+      )
+    ),
+    sex = dplyr::recode(
+      sex,
+      "f" = "Female",
+      "m" = "Male"
+    ),
+    wild = dplyr::case_when(
+      wild == 1 ~ "Wild-type",
+      wild == 0 ~ "Mutant",
+      TRUE ~ NA_character_
+    ),
+    stage_g = dplyr::recode(
+      stage_g,
+      `1` = "T1 or T2",
+      `2` = "T3",
+      `3` = "T4"
+    ),
+    stage_g = factor(stage_g, levels = c("T1 or T2", "T3", "T4")),
+    
+    histo_label = dplyr::recode(histo_g,
+                                `1` = "High (poorly/undifferentiated)",
+                                `2` = "Low (well/moderately differentiated)"),
+    
+    histo_high = factor(ifelse(histo_g == 1, "High", "Low"),
+                        levels = c("Low", "High")),
+    
+    ecog = factor(ps, levels = c(0, 1, 2)),
+    ecog_12 = factor(ifelse(ps >= 1, "1-2", "0"), levels = c("0", "1-2")),
+    
+    nodes_label = factor(dplyr::recode(nodes, `1` = "1-3", `2` = "≥4"),
+                          levels = c("1-3", "≥4")),
+    nodes_4plus = factor(ifelse(nodes == 2, "≥4", "1-3"),
+                          levels = c("1-3", "≥4")),
+    bwl_obs_label = factor(dplyr::recode(bwl_obs, `1` = "Yes", `2` = "No"),
+                            levels = c("No", "Yes")),
+    bwl_perf_label = factor(dplyr::recode(bwl_perf, `1` = "Yes", `2` = "No"),
+                            levels = c("No", "Yes")),
+    obstr = factor(ifelse(bwl_obs == 1, "Yes", "No"), levels = c("No", "Yes")),
+    
+    # Sex como factor
+    sex = factor(sex, levels = c("Female", "Male")),
+    
+     # agecat sanitizado (ggforest se atraganta con ">=" y espacios)
+    agecat = factor(
+     dplyr::case_when(
+      agecat == "< 40"   ~ "< 40",
+      agecat == "40-69" ~ "40-69",
+      agecat == ">= 70"  ~ ">= 70"
+  ),
+  levels = c("< 40", "40-69", ">= 70")
+),
+    arm_group = dplyr::case_when(
+    arm == "FOLFOX" ~ "FOLFOX",
+    arm == "FOLFOX + Cetuximab" & bwl_obs == 1 ~ "Cetuximab_BWL_Yes",
+    arm == "FOLFOX + Cetuximab" & bwl_obs == 2 ~ "Cetuximab_BWL_No",
+    TRUE ~ NA_character_
+)
+)
+custom_summary <- function(df, group_var, sum_var) {
+  group_var <- rlang::ensym(group_var)
+  sum_var <- rlang::ensym(sum_var)
+
+  is_categorical <-
+    is.character(df[[as_string(sum_var)]]) |
+    is.factor(df[[as_string(sum_var)]])
+
+  if (is_categorical) {
+    category_lbl <-
+      as_string(sum_var)
+#para quitar los NA de la tabla. modificado con chatgpt
+    df_out <-
+      df |>
+      dplyr::filter(!is.na(!!sum_var)) |> #chatgpt
+      dplyr::group_by(!!group_var) |>
+      dplyr::mutate(den = dplyr::n()) |> #chatgpt
+      dplyr::group_by(!!group_var, !!sum_var) |>
+      dplyr::summarize(
+        val = dplyr::n(),
+        den = unique(den),
+        pct = val / den,
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = !!sum_var, names_from = !!group_var,
+        values_from = c(val, den, pct)
+      ) |>
+      dplyr::rename(label = !!sum_var) |>
+      dplyr::mutate(
+        across(where(is.numeric), ~ ifelse(is.na(.), 0, .)),
+        category = category_lbl
+      )
+  } else {
+    category_lbl <- as_string(sum_var)
+
+    df_out <-
+      df |>
+      dplyr::group_by(!!group_var) |>
+      dplyr::summarize(
+        n = sum(!is.na(!!sum_var)),
+        mean = mean(!!sum_var, na.rm = TRUE),
+        sd = sd(!!sum_var, na.rm = TRUE),
+        median = median(!!sum_var, na.rm = TRUE),
+        lcl = min(!!sum_var, na.rm = TRUE),
+        ucl = max(!!sum_var, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      tidyr::pivot_longer(
+        cols = c(mean, median), #quito n, no hace falta
+        names_to = "label",
+        values_to = "val"
+      ) |>
+      dplyr::mutate(
+        sd = ifelse(label == "mean", sd, NA),
+        label = dplyr::recode(
+          label,
+          "mean" = "Mean (SD)",
+          "median" = "Median (Range)"
+        )
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = label,
+        names_from = !!group_var,
+        values_from = c(val, sd, lcl, ucl)
+      ) |>
+      dplyr::mutate(category = category_lbl)
+  }
+
+  return(df_out)
+}
+
+#Claude
+compute_pvalue <- function(df, group_var, sum_var) {
+  group_var_str <- rlang::as_string(rlang::ensym(group_var))
+  sum_var_str   <- rlang::as_string(rlang::ensym(sum_var))
+  
+  is_categorical <- is.character(df[[sum_var_str]]) | is.factor(df[[sum_var_str]])
+  
+  df_clean <- df[!is.na(df[[sum_var_str]]) & !is.na(df[[group_var_str]]), ]
+  
+   if (is_categorical) {
+    tbl       <- table(df_clean[[group_var_str]], df_clean[[sum_var_str]])
+    p         <- suppressWarnings(chisq.test(tbl)$p.value)
+    test_used <- "Chi-square"
+    
+  } else {
+    groups    <- split(df_clean[[sum_var_str]], df_clean[[group_var_str]])
+    p         <- wilcox.test(groups[[1]], groups[[2]])$p.value
+    test_used <- "Wilcoxon rank-sum"
+  }
+  
+  tibble::tibble(category = sum_var_str, p_value = p, test_used = test_used)
+}
+
+sint_summary <- sint |>
+  (\(data) purrr::map_df(
+    .x = dplyr::vars(agecat, sex, racecat, nodes_4plus, wild, bmi2, stage_g, histo_high, ecog_12),
+    .f = \(x) custom_summary(df = data, group_var = arm_group, sum_var = !!x)
+  ))()
+
+#esto lo ha hecho chatgpt:
+sint_summary <- sint_summary |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      agecat = "Age, y",
+      sex = "Sex",
+      racecat = "Race",
+      bmi2 = "BMI",
+      wild = "KRAS",
+      ecog_12 = "ECOG performance Status",
+      stage_g = "Extent of invasion through bowel wall, No./total (%)",
+      nodes_4plus = "Positive LNs",
+      histo_high = "Histology"
+    )
+  )
+
+sint_summary <- sint_summary |>
+  dplyr::mutate(
+    label = dplyr::case_when(
+      category == "BMI" & label == "Median (Range)" ~ "Median",
+      TRUE ~ label
+    )
+  )
+
+pvalue_df <- purrr::map_df(
+  .x = c("agecat", "sex", "racecat", "nodes_4plus", "wild",
+         "bmi2", "stage_g", "histo_high", "ecog_12"),
+  .f = ~ compute_pvalue(
+    df = sint |> dplyr::filter(!is.na(arm)),
+    group_var = arm,
+    sum_var = !!rlang::sym(.x)
+  )
+)
+
+pvalue_df <- pvalue_df |>
+  dplyr::mutate(
+    category = dplyr::recode(
+      category,
+      agecat   = "Age, y",
+      sex      = "Sex",
+      racecat  = "Race",
+      bmi2     = "BMI",
+      wild     = "KRAS",
+      ecog_12  = "ECOG performance Status",
+      stage_g  = "Extent of invasion through bowel wall, No./total (%)",
+      nodes_4plus    = "Positive LNs",
+      histo_highg  = "Histology"
+    )
+  )
+
+sint_summary <- sint_summary |>
+  dplyr::group_by(category) |>
+  dplyr::mutate(row_num = dplyr::row_number()) |>
+  dplyr::ungroup() |>
+  dplyr::left_join(pvalue_df, by = "category") |>
+  dplyr::mutate(
+    p_value   = dplyr::if_else(row_num == 1, p_value, NA_real_),
+    test_used = dplyr::if_else(row_num == 1, test_used, NA_character_)
+  ) |>
+  dplyr::select(-row_num)
+```
+
+```{r}
+sint_tbl <-
+  sint_summary |>
+  gt(
+    rowname_col = "label",
+    groupname_col = "category"
+  ) |>
+  tab_header(
+    title = "Baseline Patient Characteristics in Primary Analysis Population" )
+
+sint_tbl <-
+  sint_tbl |>
+  fmt_integer(
+    columns = starts_with(c("val_")),
+    rows = !(label %in% c("Mean (SD)", "Median")) #para que sean todos los valores enteros excepto media y mediana
+  ) |>
+  fmt_percent(
+    columns = starts_with("pct_"),
+    decimals = 1,
+  ) |>
+  fmt_number(
+    columns = starts_with("val_"),
+    rows = label == "Mean (SD)",
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("sd_"),
+    rows = label == "Mean (SD)",
+    decimals = 2
+  ) |>
+  fmt_number(
+    columns = starts_with("lcl_"),
+    decimals = 1
+  ) |>
+  fmt_number(
+    columns = starts_with("ucl_"),
+    decimals = 1
+  )|>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median (Range)",
+  decimals = 1
+  ) |>
+  fmt_number(
+  columns = starts_with("val_"),
+  rows = label == "Median",
+  decimals = 1
+  )
+
+sint_tbl <- sint_tbl |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_Yes", "lcl_Cetuximab_BWL_Yes", "ucl_Cetuximab_BWL_Yes"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_No", "lcl_Cetuximab_BWL_No", "ucl_Cetuximab_BWL_No"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX", "lcl_FOLFOX", "ucl_FOLFOX"),
+    rows = label == "Median (Range)" & category == "Age, y",
+    pattern = "{1} ({2}–{3})"
+  ) 
+sint_tbl <-
+  sint_tbl |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_Yes", "pct_Cetuximab_BWL_Yes", "sd_Cetuximab_BWL_Yes"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  ) |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_No", "pct_Cetuximab_BWL_No", "sd_Cetuximab_BWL_No"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX", "pct_FOLFOX", "sd_FOLFOX"),
+    rows = !category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "<<{1}>><< ({2})>><< ({3})>>"
+  )
+sint_tbl <- sint_tbl |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_Yes", "den_Cetuximab_BWL_Yes", "pct_Cetuximab_BWL_Yes"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_Cetuximab_BWL_No", "den_Cetuximab_BWL_No", "pct_Cetuximab_BWL_No"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "{1}/{2} ({3})"
+  ) |>
+  cols_merge(
+    columns = c("val_FOLFOX", "den_FOLFOX", "pct_FOLFOX"),
+    rows = category %in% c(
+      "Extent of invasion through bowel wall, No./total (%)"
+    ),
+    pattern = "{1}/{2} ({3})"
+  )
+
+sint_tbl <-
+  sint_tbl |>
+  tab_stub_indent(
+    rows = everything(),
+    indent = 5
+  ) |>
+  opt_align_table_header(align = "left")
+sint_tbl <-
+  sint_tbl |>
+  cols_width(
+    starts_with("val_") ~ px(200),
+    1 ~ px(250)
+  ) |>
+  cols_align(
+    align = "center",
+    columns = starts_with("val_")
+  )
+
+### CLAUDE: Count subjects per arm and summarize values in a list
+arm_n <-
+  sint |>
+  dplyr::group_by(arm_group) |>
+  dplyr::summarize(
+    lbl = sprintf("%s N=%i (100%%)", unique(arm_group), dplyr::n()),
+    .groups = "drop"
+  ) |>
+  dplyr::arrange(arm_group)
+
+collbl_list <- as.list(arm_n$lbl)
+names(collbl_list) <- paste0("val_", arm_n$arm_group)
+
+sint_tbl <-
+  sint_tbl |>
+  cols_label(.list = collbl_list)
+
+sint_tbl <- sint_tbl |>
+  gt::tab_spanner(
+    label = "FOLFOX + Cetuximab",
+    columns = c("val_Cetuximab_BWL_Yes", "val_Cetuximab_BWL_No")
+  )
+sint_tbl <- sint_tbl |>
+  gt::cols_label(
+    val_FOLFOX = "FOLFOX",
+    val_Cetuximab_BWL_Yes = "Bowel Obstruction: Yes",
+    val_Cetuximab_BWL_No = "Bowel Obstruction: No"
+  )
+sint_tbl <- sint_tbl |>
+  # Formato del p-valor
+  fmt_number(
+    columns = "p_value",
+    decimals = 3
+  ) |>
+  # Valores muy pequeños como "<0.001"
+  sub_small_vals(
+    columns  = "p_value",
+    threshold = 0.001
+  ) |>
+  # Celdas vacías (NA) en blanco
+  sub_missing(
+    columns = "p_value",
+    missing_text = ""
+  ) |>
+  cols_label(p_value = md("*P* Value")) |>
+  cols_align(align = "center", columns = "p_value") |>
+  cols_width("p_value" ~ px(100)) |>
+  cols_hide(columns = "test_used") |>
+  # Nota al pie explicando los tests usados
+  tab_footnote(
+    footnote = "Chi-square test for categorical variables; Wilcoxon rank-sum test for continuous variables.",
+    locations = cells_column_labels(columns = "p_value")
+  )
+
+sint_tbl
+```
+
+```{r}
+#sint_tbl |> gtsave("sint_tbl.docx")
+```
+
+
+# 3.Survival Analysis
+
+https://rpubs.com/mbounthavong/survival_analysis_in_r : Sjoberg DD, Whiting K, Curry M, Lavery JA, Larmarange J. Reproducible summary tables with the gtsummary package. The R Journal 2021;13:570–80. https://doi.org/10.32614/RJ-2021-053.
+
+## Kaplan-Meier curves
+
+###Bowel obstruction
+
+```{r}
+
+sint_armA <- sint |> dplyr::filter(arm == "FOLFOX")
+
+sint_armA <- sint_armA |>
+  dplyr::mutate(
+    fustat8  = dplyr::if_else(futime8 > 1880, 0L, as.integer(fustat8)),
+    futime8  = pmin(futime8, 1880),
+    dfsstat5 = dplyr::if_else(dfstime5 > 1880, 0L, as.integer(dfsstat5)),
+    dfstime5 = pmin(dfstime5, 1880)
+  )
+sint_armA$bwl_obs <- factor(sint_armA$bwl_obs, levels = c(2, 1), labels = c("No", "Yes"))
+kmcurve_os_bwl <- survfit(Surv(futime8, fustat8) ~ bwl_obs, data = sint_armA)
+#plot(kmcurve_os_bwl
+summary(kmcurve_os_bwl, times = 1825)
+```
+
+```{r, fig.width=8, fig.height=8}
+OS_plot<-ggsurvplot(kmcurve_os_bwl,
+           conf.int = TRUE,
+           pval = FALSE,
+           risk.table = TRUE,
+           legend.labs = c("OBS−","OBS+"),
+           title = "OS Bowel Obstruction Kaplan-Meier curve",
+           legend = "bottom",
+           #fun = "event",
+           #ylab = "Died (%)",
+           break.y.by = 0.25,
+           ylim = c(0.5, 1),
+           xscale = "d_m",
+           xlab = "Time in months",
+           xlim = c(0, 1880),
+           break.x.by = 304.4
+           )
+OS_plot$plot <- OS_plot$plot + 
+  annotate("text", 
+           x = 1, y = 0.75,
+           label = "HR 2.83 (IC95% 1.83–4.40)\np < 0.001",
+           hjust = 0, size = 3.5, fontface = "italic")
+OS_plot #https://www.rdocumentation.org/packages/ggplot2/versions/4.0.2/topics/annotate
+```
+
+
+```{r}
+kmcurve_dfs_bwl <- survfit(Surv(dfstime5, dfsstat5) ~ bwl_obs, data = sint_armA)
+#plot(kmcurve_dfs_bwl)
+summary(kmcurve_dfs_bwl, times = 1800)
+```
+
+```{r, fig.width=8, fig.height=8}
+DFS_plot<-ggsurvplot(kmcurve_dfs_bwl, 
+           conf.int = TRUE,
+           pval = FALSE,
+           risk.table = TRUE,
+           legend.labs = c("OBS−", "OBS+"),
+           legend = "bottom",
+           title = "DFS Bowel Obstruction Kaplan-Meier curve",
+           #fun = "event",
+           #ylab = "DFS event (%)",
+           #surv.scale = "percent",
+           break.y.by = 0.25,
+           ylim = c(0.4, 1),
+           xscale = "d_m",
+           xlab = "Time in months",
+           xlim = c(0, 1880),
+           break.x.by = 304.4
+           )
+DFS_plot$plot <- DFS_plot$plot + 
+  annotate("text", 
+           x = 1, y = 0.5,
+           label = "HR 1.13 (IC95% 0.82–1.56)\np =0.5",
+           hjust = 0, size = 3.5, fontface = "italic")
+DFS_plot
+```
+
+## COX
+
+###DFS
+```{r}
+coxmodel_dfs <- coxph(Surv(dfstime5, dfsstat5) ~ bwl_obs, data = sint_armA)
+
+exp(coef(coxmodel_dfs))
+
+exp(confint(coxmodel_dfs))
+```
+
+```{r}
+modeldfs <- tbl_regression(coxmodel_dfs,  exponentiate = TRUE)
+as_gt(modeldfs) %>% 
+              gt::tab_header("DFS Cox proportional hazarsint regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+
+The hazard ratio was 1.98 with a 95% confidence interval of 1.52, 2.58. Since the 95% confidence interval crosses where the HR=1, we fail to reject the null hypothesis that there is no significant differences in hazarsint between subjects in Treatment with FOLFOX and FOLFOX + Cetuximab
+
+### FU
+
+```{r}
+coxmodel_fu <- coxph(Surv(futime8, fustat8) ~ bwl_obs, data = sint_armA)
+
+exp(coef(coxmodel_fu))
+
+exp(confint(coxmodel_fu))
+```
+
+```{r}
+modelfu <- tbl_regression(coxmodel_fu,  exponentiate = TRUE)
+as_gt(modelfu) %>% 
+              gt::tab_header("OS Cox proportional hazarsint regression model") %>% 
+              gt::tab_options(table.align='left')
+```
+
+## Hazard Ratio
+
+https://cran.r-project.org/web/packages/survminer/vignettes/ggforest-show-interactions-hazard-ratio.html
+
+```{r}
+real <- read.csv("NCT00079274_unido.csv", stringsAsFactors = FALSE)
+sint <- read.csv("NCT00079274_synthetic_clean.csv", stringsAsFactors = FALSE)
+
+fml <- Surv(futime8, fustat8) ~ agecat + sex + bmi2 + ps + histo_g + nodes + stage_g + bwl_obs
+
+for (col in c("stage_g", "nodes", "bwl_obs", "histo_g", "ps")) {
+  real[[col]] <- factor(real[[col]])
+  sint[[col]] <- factor(sint[[col]])
+}
+
+cox_real <- coxph(fml, data = real)
+cox_sint <- coxph(fml, data = sint)
+
+get_hr <- function(model) {
+  s <- summary(model)$conf.int
+  data.frame(
+    Variables   = rownames(s),
+    est   = s[, 1],     # exp(coef)
+    lower = s[, 3],     # lower 95%
+    upper = s[, 4]      # upper 95%
+  )
+}
+
+hr_r <- get_hr(cox_real)
+hr_s <- get_hr(cox_sint)
+
+# Unir i calcular CI Overlap (fórmula Azizi et al.)
+dt <- merge(hr_r, hr_s, by = "Variables", suffixes = c("_r", "_s"))
+
+dt$ci_overlap <- pmax(0,
+  pmin(dt$upper_r, dt$upper_s) - pmax(dt$lower_r, dt$lower_s)
+) / (dt$upper_r - dt$lower_r) * 100
+
+dt$ci_overlap <- round(dt$ci_overlap)
+
+#Direcció
+dt$dir_real <- ifelse(dt$est_r > 1, "+", "−")
+dt$dir_sint <- ifelse(dt$est_s > 1, "+", "−")
+dt$dir_ok   <- ifelse(dt$dir_real == dt$dir_sint, "Sí", "No")
+
+#Magnitud del efecto
+dt$hr_diff_pct <- round(abs(dt$est_r - dt$est_s) / dt$est_r * 100, 1)
+
+#Significancia estadística
+
+pv_r <- data.frame(Variables = rownames(summary(cox_real)$coefficients),
+                    pval_r = summary(cox_real)$coefficients[, 5])
+pv_s <- data.frame(Variables = rownames(summary(cox_sint)$coefficients),
+                    pval_s = summary(cox_sint)$coefficients[, 5])
+dt <- merge(dt, pv_r, by = "Variables")
+dt <- merge(dt, pv_s, by = "Variables")
+dt$sig_concord <- ifelse((dt$pval_r < 0.05) == (dt$pval_s < 0.05), "Sí", "No")
+
+# Columnes per forestploter
+dt$` ` <- paste(rep(" ", 25), collapse = " ")
+dt$`CI Overlap` <- paste0(dt$ci_overlap, "%")
+
+dt$Variables <- dplyr::recode(dt$Variables,
+  "agecat>= 70"  = "Age: >=70 vs <40",
+  "agecat40-69"  = "Age: 40-69 vs <40",
+  "bmi2"         = "BMI",
+  "bwl_obs2"     = "Bowel Obstruction: No vs Yes",
+  "histo_g2"     = "Histology: Low vs High",
+  "nodes2"       = "Positive LNs: >=4 vs 1-3",
+  "ps1"          = "ECOG: 1 vs 0",
+  "ps2"          = "ECOG: 2 vs 0",
+  "sexm"         = "Sex: Male vs Female",
+  "stage_g2"     = "T Stage: T3 vs T1-2",
+  "stage_g3"     = "T Stage: T4 vs T1-2"
+)
+
+# Tema
+tm <- forest_theme(
+  base_size = 10,
+  ci_pch    = c(16, 18),
+  ci_col    = c("black", "grey50"),
+  ci_lty    = 1,
+  ci_lwd    = 1.5,
+  legend_name  = "Source",
+  legend_value = c("Real", "Synthetic"),
+  refline_gp   = gpar(col = "grey30", lty = 2)
+)
+
+# Forest plot
+p <- forest(
+  data    = dt[, c("Variables", " ", "CI Overlap")],
+  est     = list(dt$est_r, dt$est_s),
+  lower   = list(dt$lower_r, dt$lower_s),
+  upper   = list(dt$upper_r, dt$upper_s),
+  ci_column = 2,
+  ref_line  = 1,
+  x_trans   = "log",
+  xlab      = "HR",
+  nudge_y   = 0.2,
+  title     = "HR: Analysis for Overall Survival",
+  theme     = tm
+)
+
+plot(p)
+```
+```{r}
+tabla_os<- dt %>%
+  select(Variables, dir_real, dir_sint, dir_ok,
+         est_r, est_s, hr_diff_pct, ci_overlap,
+         pval_r, pval_s, sig_concord) %>%
+  mutate(est_r = round(est_r, 2), est_s = round(est_s, 2),
+         pval_r = round(pval_r, 3), pval_s = round(pval_s, 3)) %>%
+  gt() %>%
+  cols_label(
+    dir_real = "Dir. Real", dir_sint = "Dir. Sint.", dir_ok = "Concordancia",
+    est_r = "HR Real", est_s = "HR Sint.", hr_diff_pct = "Δ HR (%)",
+    ci_overlap = "CI Overlap (%)", pval_r = "p Real", pval_s = "p Sint.",
+    sig_concord = "Sig. Concordancia"
+  ) %>%
+  tab_header(title = md("**Tabla X.** Concordancia multivariada: OS"))
+tabla_os
+```
+
+```{r}
+#gtsave(tabla_os, "tabla_concordancia_os.docx")
+```
+
+
+```{r}
+fmldfs <- Surv(dfstime5, dfsstat5) ~ agecat + sex + bmi2 + ps + histo_g + nodes + stage_g + bwl_obs
+
+for (col in c("stage_g", "nodes", "bwl_obs", "histo_g", "ps")) {
+  real[[col]] <- factor(real[[col]])
+  sint[[col]] <- factor(sint[[col]])
+}
+
+cox_realdfs <- coxph(fmldfs, data = real)
+cox_sintdfs <- coxph(fmldfs, data = sint)
+
+hr_rdfs <- get_hr(cox_realdfs)
+hr_sdfs <- get_hr(cox_sintdfs)
+
+# Unir i calcular CI Overlap (fórmula Azizi et al.)
+dtdfs <- merge(hr_rdfs, hr_sdfs, by = "Variables", suffixes = c("_r", "_s"))
+
+dtdfs$ci_overlap <- pmax(0,
+  pmin(dtdfs$upper_r, dtdfs$upper_s) - pmax(dtdfs$lower_r, dtdfs$lower_s)
+) / (dtdfs$upper_r - dtdfs$lower_r) * 100
+
+dtdfs$ci_overlap <- round(dtdfs$ci_overlap)
+
+#Direcció
+dtdfs$dir_real <- ifelse(dtdfs$est_r > 1, "+", "−")
+dtdfs$dir_sint <- ifelse(dtdfs$est_s > 1, "+", "−")
+dtdfs$dir_ok   <- ifelse(dtdfs$dir_real == dtdfs$dir_sint, "Sí", "No")
+
+#Magnitud del efecto
+dtdfs$hr_diff_pct <- round(abs(dtdfs$est_r - dtdfs$est_s) / dtdfs$est_r * 100, 1)
+
+#Significancia estadística
+
+pv_r <- data.frame(Variables = rownames(summary(cox_realdfs)$coefficients),
+                    pval_r = summary(cox_realdfs)$coefficients[, 5])
+pv_s <- data.frame(Variables = rownames(summary(cox_sintdfs)$coefficients),
+                    pval_s = summary(cox_sintdfs)$coefficients[, 5])
+dtdfs <- merge(dtdfs, pv_r, by = "Variables")
+dtdfs <- merge(dtdfs, pv_s, by = "Variables")
+dtdfs$sig_concord <- ifelse((dtdfs$pval_r < 0.05) == (dtdfs$pval_s < 0.05), "Sí", "No")
+
+# Columnes per forestploter
+dtdfs$` ` <- paste(rep(" ", 25), collapse = " ")
+dtdfs$`CI Overlap` <- paste0(dtdfs$ci_overlap, "%")
+
+dtdfs$Variables <- dplyr::recode(dtdfs$Variables,
+  "agecat>= 70"  = "Age: >=70 vs <40",
+  "agecat40-69"  = "Age: 40-69 vs <40",
+  "bmi2"         = "BMI",
+  "bwl_obs2"     = "Bowel Obstruction: No vs Yes",
+  "histo_g2"     = "Histology: Low vs High",
+  "nodes2"       = "Positive LNs: >=4 vs 1-3",
+  "ps1"          = "ECOG: 1 vs 0",
+  "ps2"          = "ECOG: 2 vs 0",
+  "sexm"         = "Sex: Male vs Female",
+  "stage_g2"     = "T Stage: T3 vs T1-2",
+  "stage_g3"     = "T Stage: T4 vs T1-2"
+)
+
+# Tema
+tm <- forest_theme(
+  base_size = 10,
+  ci_pch    = c(16, 18),
+  ci_col    = c("black", "grey50"),
+  ci_lty    = 1,
+  ci_lwd    = 1.5,
+  legend_name  = "Source",
+  legend_value = c("Real", "Synthetic"),
+  refline_gp   = gpar(col = "grey30", lty = 2)
+)
+
+# Forest plot
+pdfs <- forest(
+  data    = dtdfs[, c("Variables", " ", "CI Overlap")],
+  est     = list(dtdfs$est_r, dtdfs$est_s),
+  lower   = list(dtdfs$lower_r, dtdfs$lower_s),
+  upper   = list(dtdfs$upper_r, dtdfs$upper_s),
+  ci_column = 2,
+  ref_line  = 1,
+  x_trans   = "log",
+  xlab      = "HR",
+  nudge_y   = 0.2,
+  title     = "HR: Analysis for Disease Free Survival",
+  theme     = tm
+)
+
+plot(pdfs)
+```
+
+```{r}
+tabla_dfs <- dtdfs %>%
+  select(Variables, dir_real, dir_sint, dir_ok,
+         est_r, est_s, hr_diff_pct, ci_overlap,
+         pval_r, pval_s, sig_concord) %>%
+  mutate(est_r = round(est_r, 2), est_s = round(est_s, 2),
+         pval_r = round(pval_r, 3), pval_s = round(pval_s, 3)) %>%
+  gt() %>%
+  cols_label(
+    dir_real = "Dir. Real", dir_sint = "Dir. Sint.", dir_ok = "Concordancia",
+    est_r = "HR Real", est_s = "HR Sint.", hr_diff_pct = "Δ HR (%)",
+    ci_overlap = "CI Overlap (%)", pval_r = "p Real", pval_s = "p Sint.",
+    sig_concord = "Sig. Concordancia"
+  ) %>%
+  tab_header(title = md("**Tabla X.** Concordancia multivariada: DFS"))
+tabla_dfs
+```
+
+```{r}
+#gtsave(tabla_dfs, "tabla_concordancia_dfs.docx")
+```
+# 5. Análisis Bland-Altman
+
+```{r}
+# Estilo basado en Cristina Gil (RPubs): https://rpubs.com/Cristina_Gil/B-A_analysis
+
+#OS
+metodo_A<- log(dt$est_r)
+metodo_B<-log(dt$est_s)
+
+diferencia <- metodo_A - metodo_B
+media <- (metodo_A + metodo_B) / 2
+porcentaje <- ((diferencia / media) * 100)
+datos <- data.frame(metodo_A, metodo_B, diferencia, media, porcentaje)
+datos$variable <- dt$Variables
+summary(datos) 
+  
+BA_plot <- ggplot(data = datos, aes(x = media, y = diferencia)) +
+             geom_point(pch = 1, size = 1.5, col = "black") +
+             labs(title = "Bland-Altman plot OS", x = "media Real y Sintético", 
+                  y = "método real - método sintético") +
+             ylim(mean(datos$diferencia) - 4 * sd(datos$diferencia), 
+                  mean(datos$diferencia) + 4 * sd(diferencia)) +
+             # Línea de bias
+             geom_hline(yintercept = mean(datos$diferencia), lwd = 1) +
+             # Línea en y=0
+             geom_hline(yintercept = 0, lty = 3, col = "grey30") +
+             # Limits of Agreement
+             geom_hline(yintercept = mean(datos$diferencia) + 
+                        1.96 * sd(datos$diferencia), 
+                        lty = 2, col = "firebrick") +
+             geom_hline(yintercept = mean(datos$diferencia) - 
+                        1.96 * sd(datos$diferencia), 
+                        lty = 2, col = "firebrick") +
+             theme(panel.grid.major = element_blank(), 
+                   panel.grid.minor = element_blank()) +
+             geom_text(label = "Bias", x = 991, y = -18, size = 3, 
+                       colour = "black") +
+             geom_text(label = "+1.96SD", x = 960, y = 50, size = 3, 
+                       colour = "firebrick") +
+             geom_text(label = "-1.96SD", x = 960, y = -103, size = 3, 
+                       colour = "firebrick") +
+             theme_bw() + theme(plot.title = element_text(hjust = 0.5))
+
+BA_plot
+
+BA_plot +
+  geom_smooth(method = "lm", se = TRUE, fill = "lightgrey", lwd = 0.1, lty = 5) +
+  geom_text(aes(label = variable), hjust = -0.2, vjust = -0.5, size = 2.5)
+
+
+#DFS
+metodo_Adfs<- log(dtdfs$est_r)
+metodo_Bdfs<-log(dtdfs$est_s)
+
+diferenciadfs <- metodo_Adfs - metodo_Bdfs
+mediadfs <- (metodo_Adfs + metodo_Bdfs) / 2
+porcentajedfs <- ((diferenciadfs / mediadfs) * 100)
+datosdfs <- data.frame(metodo_A, metodo_B, diferenciadfs, mediadfs, porcentajedfs)
+datosdfs$variabledfs <- dtdfs$Variables
+summary(datosdfs) 
+  
+BA_plotdfs <- ggplot(data = datosdfs, aes(x = mediadfs, y = diferenciadfs)) +
+             geom_point(pch = 1, size = 1.5, col = "black") +
+             labs(title = "Bland-Altman plot DFS", x = "media Real y Sintético", 
+                  y = "método real - método sintético") +
+             ylim(mean(datosdfs$diferenciadfs) - 4 * sd(datosdfs$diferenciadfs), 
+                  mean(datosdfs$diferenciadfs) + 4 * sd(diferenciadfs)) +
+             # Línea de bias
+             geom_hline(yintercept = mean(datosdfs$diferenciadfs), lwd = 1) +
+             # Línea en y=0
+             geom_hline(yintercept = 0, lty = 3, col = "grey30") +
+             # Limits of Agreement
+             geom_hline(yintercept = mean(datosdfs$diferenciadfs) + 
+                        1.96 * sd(datosdfs$diferenciadfs), 
+                        lty = 2, col = "firebrick") +
+             geom_hline(yintercept = mean(datosdfs$diferenciadfs) - 
+                        1.96 * sd(datosdfs$diferenciadfs), 
+                        lty = 2, col = "firebrick") +
+             theme(panel.grid.major = element_blank(), 
+                   panel.grid.minor = element_blank()) +
+             geom_text(label = "Bias", x = 991, y = -18, size = 3, 
+                       colour = "black") +
+             geom_text(label = "+1.96SD", x = 960, y = 50, size = 3, 
+                       colour = "firebrick") +
+             geom_text(label = "-1.96SD", x = 960, y = -103, size = 3, 
+                       colour = "firebrick") +
+             theme_bw() + theme(plot.title = element_text(hjust = 0.5))
+
+BA_plotdfs
+
+BA_plotdfs +
+  geom_smooth(method = "lm", se = TRUE, fill = "lightgrey", lwd = 0.1, lty = 5) +
+  geom_text(aes(label = variabledfs), hjust = -0.2, vjust = -0.5, size = 2.5)
+```
+
+
+•	Evaluación del motivo de finalización del tratamiento, utilizando la variable reason treatment ended.
+
+```{r}
+table(sint$endatrsn)
+prop.table(table(sint$endatrsn)) * 100
+
+ggplot(sint, aes(x = factor(endatrsn), fill = arm)) +
+  geom_bar() +
+  coord_flip() + 
+  labs(
+    x = "Reason"
+  ) +
+  scale_x_discrete(labels = c("1" = "Treatment completed per protocol criteria", "2" = "Refused further therapy", "3" = "Adverse Event/Side Effects/Complications", "4" = "Disease Progression, relapse during active treatment", "5" = "Alternative therapy", "6" = "Other Medical Problems", "7" = "Death on Study", "8" = "Other", "10" = "Disease progression before active treatment", "11" = "Cytogenetic Resistance", "12" = "Refused further treatment before beginning protocol therapy"))
+```
+
+
+
+
+
